@@ -15,4 +15,8 @@
 
   **이렇게 하면 윈도우에서 텐서플로르 엔진으로 하는 케라스의 사용 환경 구축과 설정을 완료한 것이다.**
   
+  ![image](https://user-images.githubusercontent.com/66320010/119663444-4e577800-be6d-11eb-9b51-5081feb137a7.png)
+
+  ![image](https://user-images.githubusercontent.com/66320010/119663527-63340b80-be6d-11eb-837d-65624836c1ea.png)
+  
 - 케라스는 텍스트 모드 / 주피터 노트북 모드에서 실습 가능하다.
