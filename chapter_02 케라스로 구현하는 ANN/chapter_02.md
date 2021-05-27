@@ -349,7 +349,7 @@ ANN 코드의 재사용성을 높이기 위해 객체지향 방식으로 구현�
       x_train = x_train / 255.0
       x_test = x_test / 255.0
       
-  - 여기서는 0~255 사이의 정수로 입력된 입력값을 255로 나누어 0~1 사이의 실수로 바꾼다. 
+  - 여기서는 0 ~ 255 사이의 정수로 입력된 입력값을 255로 나누어 0 ~ 1 사이의 실수로 바꾼다. 
 
 **여기까지 과정이 진행되면 학습을 진행하는 데 필요한 데이터가 준비된 것이다.**     
       
@@ -451,10 +451,102 @@ ANN 코드의 재사용성을 높이기 위해 객체지향 방식으로 구현�
 
 ## 2.3 시계열 데이터를 예측하는 회귀 ANN 구현 ##        
   
+보스턴 집값을 예측하는 회귀 ANN을 구현해보자.
+
+< 구현 절차 >
+
+1. 회귀 ANN 구현
+2. 학습과 평가용 데이터 불러오기
+3. 회귀 ANN 학습 및 성능 평가
+4. 회귀 ANN학습 결과 분석
         
+### 2.3.1 회귀 ANN 모델링 ###        
         
+회귀 모델을 구현해보자.
+
+- 케라스 패키지에 들어 있는 서브패키지 layers와 models를 임포트
+
+      from keras import layers, models
+      
+  - layers와 models는 각각 계층을 구성하는 툴들과 계층을 합쳐 하나의 모델로 만드는 툴이 들어있는 케라스 서브패키지이다.
+
+- 클래스를 만들고 클래스 생성사 함수에 사용될 신경망 계층을 정의
+
+      class ANN(models.Model):
+        def __init__(self,Nin,Nh,Nout):
+          hidden = layers.Dense(Nh)
+          output = layers.Dense(Nout)
+          relu = layers.Activation('relu')
+
+- ANN의 각 계층의 신호 연결 상황 정의
+
+      x = layers.Input(shape = (Nin,))    # numpy 라이브러리는 열 벡터 모양을 (Nin,)와 같이 표현
+      h = relu(hidden(x))
+      y = output(h)
         
-        
-        
-        
-        
+  - x : Nin 길이를 가지는 1차원 열 벡터
+  - 출력은 활성화 함 수 없이 바로 y로 나온다(회귀에서는 통상적으로 출력 노드에 활성화 함수를 사용하지 않는다).
+
+- 입력과 출력을 이용해 모델을 만들고 만들어진 모델을 사용하도록 컴파일
+
+      super().__init__(x,y)
+        self.compile(loss = 'mse', optimizer = 'sgd')
+
+### 2.3.2 학습과 평가용 데이터 불러오기 ###   
+
+데이터셋 Boston housing에는 총 506건의 보스턴 집값과 관련된 13가지 정보가 담겨져 있다.
+
+- 데이터를 불러와 딥러닝 이전에 전처리 하는 응용 패키지 불러오기
+
+      from keras import datasets   
+      from sklearn import preprocessing
+      
+  - datasets은 MNIST, Boston housing 등 잘 알려진 머신러닝 공개 데이터를 자동으로 불러오는 패키지
+
+  - sklearn.preprocessing은 머신러닝에 사용되는 패키지. sklearn은 여러 패키지를 포함하는 컨테이너 패키지
+
+- 앞서 말한 Boston housing 관련 데이터를 가져온 뒤 데이터 정규화 진행
+
+      (x_train,y_train),(x_test,y_test) = datasets.boston_housing.load_data()
+      scaler = preprocessing.MinMaxScaler()
+      x_train = scaler.fit_transform(x_train)
+      x_test = scaler.transform(x_test)
+
+  - MinMaxScaler는 최곳값 최젓값을 1과 0으로 정규화해주는 함수이다.
+  
+  - 이 스케일러의 객체를 인스턴스로 생성한 뒤에 x_train으로 학습과 변환을 한 뒤 x_test를 변환시킨다.
+
+
+### 2.3.3 회귀 ANN 학습 결과 그래프 구현 ###  
+
+앞에서 그린 학습 결과를 표시하는 그래프 코드를 그대로 사용한다. 
+
+      plot_loss(history)
+      plt.show()
+      
+      plot_acc(history)
+      plt.show()
+
+### 2.3.4 회귀 ANN 학습 및 성능 분석 ###
+
+    def main() :
+      Nin = 13   
+      Nh = 5
+      Nout = 1
+      
+  - 여기서는 분류가 아니라 회귀를 통해 결괏값을 직접 예측하기 때문에 출력 계층의 길이 (Nout)을 1로 설정하였다.
+
+- 앞에서 구현한 회귀 ANN 모델의 인스턴스를 생성하고 적용할 데이터를 불러오기 + 불러온 데이터를 이용해 생성된 모델의 인스턴스 학습
+
+      model = ANN(Nin,Nh,Nout)
+      (x_train,y_train),(x_test,y_test) = Data_func()
+      history = model.fit(x_train,y_train,epochs = 100, batch_size = 100, validation_split = 0.2, verbose = 2)
+      
+  - model의 멤버 함수 fit()으로 학습한다.
+
+- 학습이 끝난 신경망으로 성능을 평가
+
+성능 평가에는 model.evaluate()를 사용한다.
+
+    performance_test = model.evaluate(x_test,y_test, batch_size = 100)
+    print('\nTest Loss -> '{:2f}'.format(performance_test))
