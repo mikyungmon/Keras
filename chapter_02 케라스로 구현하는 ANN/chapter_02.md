@@ -432,14 +432,25 @@ ANN 코드의 재사용성을 높이기 위해 객체지향 방식으로 구현�
   
         validation_split : 전체 학습 데이터 중에서 학습 진행 중 성능 검증에 데이터를 얼마나 사용할지를 결정하는 변수 ( 이 예제에서는 학습데이터의 20%를 성능 검증에 활용 )
   
+- 학습이나 검증에 사용되지 않은 데이터 (x_test, y_test)로 성능을 최종 평가한 결과 
+
+      performance_test = model.evaluate(x_test, y_test, batch_size = 100)
+      print('Test Loss and Accuracy -> '{:.2f},{:.2f}'.format(*performance_test))
+        
+- 손실과 정확도의 추이를 그림으로 그려보기
+
+      plot_loss(history)
+      plt.show()
+      
+      plot_acc(history)
+      plt.show()
+        
+  - 이 함수들을 실행하면 손실 학습 곡선과 정확도 곡선이 출력된다.
   
-        
-        
-        
-        
-        
-        
-        
+  - 과적합 방지 방법으로는 조기 종료나 모델에 사용된 파라미터 수를 줄이는 방법이 있다.
+
+## 2.3 시계열 데이터를 예측하는 회귀 ANN 구현 ##        
+  
         
         
         
