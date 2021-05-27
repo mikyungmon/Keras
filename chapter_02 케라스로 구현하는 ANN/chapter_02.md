@@ -135,7 +135,7 @@ ANN모델링은 분산 방식, 연쇄 방식 또는 둘의 혼합 방식으로 �
 
 1. 케라스 패키지로 2가지 모듈을 불러온다.
 
-        from keras import layers, models
+       from keras import layers, models
         
     - layers : 각 계층을 만드는 모듈
     - models : 각 layer들을 연결하여 신경망 모델을 만든 후, 컴파일하고 , 학습시키는 역할
@@ -167,11 +167,11 @@ ANN모델링은 분산 방식, 연쇄 방식 또는 둘의 혼합 방식으로 �
 
 - 입력계층 정의
   
-       x = layers.Input(shape(Nin,))  # 원소 Nin개를 가지는 입력 신호 벡터
+      x = layers.Input(shape(Nin,))  # 원소 Nin개를 가지는 입력 신호 벡터
        
 - 은닉 계층 정의
 
-       h = layers.Activation('relu')(layers.Dense(Nh)(x))
+      h = layers.Activation('relu')(layers.Dense(Nh)(x))
        
     - 은닉 계층은 layers.Dense()로 지정한다. 노드가 Nh개인 경우에 은닉 계층을 layers.Dense(Nh)(x)로 지정한다. 참고로 layers.Dense(Nh)는 layers.Dense 객체의 인스턴스이다.
 
@@ -197,7 +197,7 @@ ANN모델링은 분산 방식, 연쇄 방식 또는 둘의 혼합 방식으로 �
 
      - 컴파일(모델 파라미터를 통해 모델 구조를 생성하는 과정) 과정
       
-            model. compile(loss = 'categorical_crossentropy', optimizer = 'adam', metrics = ['accuracy'])
+           model. compile(loss = 'categorical_crossentropy', optimizer = 'adam', metrics = ['accuracy'])
             
           loss : 손실함수 / 
           optimizer : 최적화 함수 / 
@@ -210,14 +210,14 @@ ANN모델링은 분산 방식, 연쇄 방식 또는 둘의 혼합 방식으로 �
 
 - 모델 설정
         
-          model = models.Sequential()
+      model = models.Sequential()
           
   - 연쇄 방식은 모델 구조를 정의하기 전에 Sequential()함수로 모델을 초기화 해야한다.
 
 - 모델의 구조 설정
 
-        model.add(layers.Dense(Nh, activation = 'relu', input_shape = (Nin,))
-        model.add(layers.Dense(Nout, activation = 'softmax')
+      model.add(layers.Dense(Nh, activation = 'relu', input_shape = (Nin,))
+      model.add(layers.Dense(Nout, activation = 'softmax')
         
   - 첫 번째 add() 단계에서 입력 계층과 은닉 계층의 형태가 동시에 정해진다. 
 
@@ -237,14 +237,14 @@ ANN 코드의 재사용성을 높이기 위해 객체지향 방식으로 구현�
 
 - 클래스의 초기화 함수를 정의
 
-        class ANN(models.Model):
-          def __init__(self,Nin,Nh,Nout):
+      class ANN(models.Model):
+        def __init__(self,Nin,Nh,Nout):
           
   - 초기화 함수는 입력 계층, 은닉 계층, 출력 계층의 노드 수를 각각 Nin,Nh,Nout으로 받는다. 
 
 - 신경망 모델에 사용할 계층을 정의
 
-        hidden = layers.Dense(Nh)
+      hidden = layers.Dense(Nh)
         
   - 은닉 계층이 하나이므로 은닉 계층 출력 변수로 hidden하나만 사용했다.
 
@@ -262,16 +262,16 @@ ANN 코드의 재사용성을 높이기 위해 객체지향 방식으로 구현�
  
 - 이제 노드 수가 Nout개인 출력 계층 정의
 
-        output = layers.Dense(Nout)
+      output = layers.Dense(Nout)
   
 - activation함수를 정의
 
-        relu = layers.Activation('relu')
-        softmax = layers.Activation('softmax')
+      relu = layers.Activation('relu')
+      softmax = layers.Activation('softmax')
         
 - 상속 받은 부모 클래스의 초기화를 진행
   
-        super().__init__(x,y)
+      super().__init__(x,y)
         
   - 여기서 부모 클래스가 models.Model이다. 적어주지 않으면 자동으로 선정된다.
 
@@ -284,28 +284,166 @@ ANN 코드의 재사용성을 높이기 위해 객체지향 방식으로 구현�
       
 **[ 연쇄 방식 모델링을 포함하는 객체지향형 구현 ]**        
       
+앞에서는 Models.Model에서 모델을 상속 받았지만 이번에는 models.Sequetial에서 상속 받는다.
+ 
+직접 모델링 방법에서는 컴파일하기 직전에 초기화했는데 연쇄 방식에서는 부모 클래스의 초기화 함수를 자신의 초기화 함수 가장 앞 단에서 부른다.
+ 
+    class ANN(models.Sequential):
+      def __init__(self,Nin,Nh,Nout):
+        super().__init__()
+            
+모델링은 앞의 계층에 새로운 층을 추가하는 형태이다. 연쇄 방법은 입력 계층을 별도로 정의하지 않고 은닉 계층부터 추가해나간다.
+ 
+    self.add(layers.Dense(Nh,activation = 'relu', input_shape = (Nin,)))
       
+  - 은닉 계층을 붙일 때, 변수 중 하나로 입력 계층 노드 수를 input_shape = (Nin,)과 같이 포함해주어 간단한 입력 계층 정의하였다.
+
+- 출력계층 정의
+
+      self.add(layers.Dense(Nout,),activation = 'softmax')
       
+### 2.2.2 분류 ANN에 사용할 데이터 불러오기 ###       
       
+- 케라스는 자주 쓰는 데이터셋을 쉽게 불러오는 라이브러리를 제공한다.
+
+- 여기서는 MNIST 데이터셋을 사용한다(MNIST는 6만 건의 필기체 숫자를 모은 공개 데이터이다).
+
+< 데이터 불러오고 전처리 하는 단계 >
+
+  1. 데이터 처리에 사용할 패키지 임포트
+  2. 데이터 불러오기
+  3. 출력값 변수를 이진 벡터 형태로 바꾸기
+  4. 이미지를 나타내는 아규먼트를 1차원 벡터 형태로 바꾸기
+  5. ANN을 위해 입력값들을 정규화하기
       
+- 데이터 불러오는 라이브러리 가져오기
+
+      import numpy as np  # reshape() 사용하고자 가져옴
+      from keras import datasets  # mnist
+      from keras.utils import np_utils  # to_categorical
       
+- MNIST 데이터를 불러와서 변수에 저장
+
+      (x_train,y_train), (x_test,y_test) = datasets.mnist.load_data()
+         
+  - 학습에 사용하는 데이터는 6만 개이고, 성능 평가에 사용하는 데이터는 1만 개이다.
       
+- 0부터 9까지 숫자로 구성된 출력값을 0과 1로 표현하는 벡터 10개로 바꾸기
+    
+      Y_train = np.utils.to_categorical(y_train)
+      Y_test = np.utils.to_categorical(y_test)
+  
+  - **이렇게 전환하는 이유는 ANN을 이용한 분류 작업 시 정수보다 이진 벡터로 출력 변수를 구성하는 것이 효율적이기 때문이다.**
       
+- x_train, x_test에 (x,y)축에 대한 픽셀 정보가 들어가 있는 3차원 데이터인데 실제 학습 및 평가용 이미지를 2차원으로 조정
+
+      L,M,H = x_train.shape
+      x_train = x_train.reshape(-1, W*H)   # reshape에서 -1은 행렬의 행을 자동으로 설정하게 만듦
+      x_test = x_test.reshape(-1, W*H)
       
+  - L : 학습 데이터셋에 있는 샘플 수 
+  - 따라서 L * W * H 와 같은 모양의 텐서로 저장되어있음     
+
+- ANN 최적화를 위해 아규먼트를 정규화
+
+      x_train = x_train / 255.0
+      x_test = x_test / 255.0
       
+  - 여기서는 0~255 사이의 정수로 입력된 입력값을 255로 나누어 0~1 사이의 실수로 바꾼다. 
+
+**여기까지 과정이 진행되면 학습을 진행하는 데 필요한 데이터가 준비된 것이다.**     
       
+### 2.2.3 분류 ANN 학습 결과 그래프 구현 ###         
       
+- 학습 결과 분석은 학습이 진행되는 동안 측정한 솔실과 정확도의 추이를 관찰하여 이루어진다.
+
+- 이 값들은 fit()함수의 결과인 history변수에 저장되어있다(2.2.5절에서 다룰 내용).
+
+- 우선 history에 들어있는 손실과 정확도 추이를 시각적으로 표현하는 두 함수를 만들어보자.
+
+  - 우선 그래프를 그리는 라이브러리 plt를 불러오기
+
+        import matplotlib.pyplot as plt
+   
+   - 이 라이브러리에서 활용할 함수는 plt.plot(), plt.title(), plt.xlabel(), plt.ylabel(), plt.legend()이다
+   
+     plt.plot() : 선 그리기
+     
+     plt.title() : 그래프 제목 표시
+     
+     plt.xlabel() : x축 이름 표시
+     
+     plt.ylabel() : y축 이름 표시
+     
+     plt.legend() : 각 라인의 표식 표시
+  
+- 손실 그리는 함수
+
+      def plot_loss(history):
+        plt.plot(history.history['loss'])   # 실제 데이터로 구한 손실 값
+        plt.plot(history.history['val_loss'])  # 검증 데이터로 구한 손실 값
+        plt.title('Model Loss')
+        plt.ylabel('Loss')
+        plt.xlabel('Epoch')
+        plt.legend(['Train','Test'], loc = 0)
       
+  - plt.plot()을 이용하여 history에 들어있는 손실값을 그린다.
       
+- 정확도를 그리는 함수
+
+      def plot_acc(history):
+        plt.plot(history.history['acc'])   # 실제 데이터로 구한 정확도
+        plt.plot(history.history['val_acc'])  # 검증 데이터로 구한 정확도
+        plt.title('Model Accuracy')
+        plt.ylabel('Accuracy')
+        plt.xlabel('Epoch')
+        plt.legend(['Train','Test'], loc = 0)
+        
+### 2.2.4 분류 ANN 학습 및 성능 분석 ###         
+        
+- ANN에 사용할 파라미터 정의
+
+      def main() :
+        Nin = 784   
+        Nh = 100
+        number_of_class = 10
+        Nout = number_of_class
+   
+- 앞서 만들어두었던 모델의 인스턴스를 만들고 데이터 불러오기
+
+      model = ANN_seq_class(Nin,Nh,Nout)
+      (x_train,y_train),(x_test,y_test) = Data_func()
       
-      
-      
-      
-      
-      
-      
-      
-      
-      
-      
-      
+ - 만들어진 인스턴스와 불러온 데이터를 이용해 모델 학습하기
+
+  - **학습은 모델에 fit()함수를 이용하여 데이터를 제공하여 진행한다.**
+    
+        history = model.fit(x_train,y_train, epochs = 5, batch_size = 100, validation_split = 0.2)
+        
+    - 학습 진행 사항을 변수 history에 저장한다.
+
+    - 파라미터
+
+        x_train, y_train : 학습에 이용할 입력 데이터와 출력 레이블
+
+        epochs : 총 반복할 에포크 지정
+  
+        batch_size : 한 데이터를 얼마씩 나눠서 넣을지 지정하는 값
+  
+        validation_split : 전체 학습 데이터 중에서 학습 진행 중 성능 검증에 데이터를 얼마나 사용할지를 결정하는 변수 ( 이 예제에서는 학습데이터의 20%를 성능 검증에 활용 )
+  
+  
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
