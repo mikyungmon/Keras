@@ -61,17 +61,63 @@ DNN을 포함한 인공신경망에 있어서 **경사도 소실 문제(vanishin
 
 ## 3.2 필기체를 분류하는 DNN 구현 ##
 
+이번에 사용할 데이터셋은 앞에서 사용한 0에서 9까지로 구분된 필기체 숫자들의 모음이다(5만 개의 학습데이터와 1만 개의 성능 평가 데이터로 구성).
 
+위에서 말한 4단계로 은닉 계층이 늘어난 DNN을 구현한다.
 
+### 3.2.1 기본 파라미터 설정 ###
 
+1. DNN 구현에 필요한 파라미터 정의
 
+       Nin = 784
+       Nh_l = [100, 50]
+       number_of_class = 10
+       Nout = number_of_class
 
+    - 입력 노드 수는 입력 이미지 크기에 해당하는 784개
 
+    - 출력 노드 수는 분류할 클래스 수와 같은 10개
 
+    - 은닉 계층은 두 개 이므로 각각에 대한 은닉 노드 수를 100과 50으로 지정
 
+### 3.2.2 DNN 모델 구현 ###
 
+2. DNN 모델 구현
 
+   이번에는 객체지향 방식으로 DNN모델링 구현한다. 연쇄 방식으로 계층들을 기술할 것이므로 DNN 객체를 models.Sequential로부터 상속 받는다.
 
+   모델링은 객체의 초기화 함수인 __init__()에서 구성한다.
+
+        class DNN(models.Sequential):
+          def __init__(self,Nin,Nh_l,Nout):
+            super.__init__()
+
+   - 연쇄 방식으로 구성할 것이므로 부모 클래스의 초기화 함수를 먼저 불러서 모델링이 시작됨을 알린다.
+
+   - DNN의 은닉 계층과 출력 계층은 모두 케라스의 layers 서브패키지 아래에 Dense()개체로 구성한다.
+
+         self.add(layers.Dense(Nh_l[0], activation = 'relu',input_shape = (Nin,), name = 'Hidden-1'))
+         self.add(layers.Dropout(0.2))
+
+   - 연쇄 방식으로 모델링을 기술하는 self.add()는 제1 은닉 계층부터 기술한다. 이름은 'Hidden-1'로 설정한다.
+
+   - 입력 계층 정의는 첫 번째 은닉 계층의 정의와 함께 이루어진다. 첫 번째 은닉 계층 정의 시 input_shape을 적어줌으로 입력 계층이 Nin개의 노드로 구성된 벡터 방식임을 지정한다.
+
+   - Dropout(p) : p라는 확률로 출력 노드의 신호를 보내다 말다 한다. p라는 확률로 앞 계층의 일부 노드들이 단절되기 때문에 훨씬 더 견고하게 신호에 적응한다.
+
+         self.add(layers.Dense(Nh_l[1], activation = 'relu',input_shape = (Nin,), name = 'Hidden-2'))
+         self.add(layers.Dropout(0.2))  
+         self.add(layers.Dense(Nout,activation = 'softmax'))
+    
+   - 제2 은닉 계층을 제1 은닉 계층과 유사하게 구성한다(노드 수는 제1 은닉 계층의 노드 수와 다를 수 있다).
+
+   - 이번에는 앞 계층의 노드 수를 적지 않았다. **제2 은닉 계층부터는 케라스가 자동으로 현재 계층의 입력 노드 수룰 앞에 나온 은닉 계층 출력 수로 설정해주기 때문이다.**
+
+이제 모델 컴파일 할 단계이다.
+
+    self.compile(loss = 'categorical_crossentropy', optimizer = 'adam', metrics = ['accuracy'])
+    
+   - 분류할 클래스 수가 2개 이상이므로 loss를 categorical_crossentropy로 설정하였고 최적화는 adam방식을 사용하였다.
 
 
 
