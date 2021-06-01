@@ -119,6 +119,6 @@ DNN을 포함한 인공신경망에 있어서 **경사도 소실 문제(vanishin
     
    - 분류할 클래스 수가 2개 이상이므로 loss를 categorical_crossentropy로 설정하였고 최적화는 adam방식을 사용하였다.
 
-
+### 3.2.3 데이터 준비 ###
 
 
