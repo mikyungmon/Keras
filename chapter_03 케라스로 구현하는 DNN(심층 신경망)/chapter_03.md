@@ -16,7 +16,7 @@ DNN은 은닉 계층이 여러 개인 신경망이다.
 
 구조는 다음 그림과 같다.
 
-(사진)
+![image](https://user-images.githubusercontent.com/66320010/120432086-5acf5980-c3b4-11eb-869e-1b08e37534a9.png)
 
 2장의 ANN과 달리 제1 은닉 계층의 결과는 출력 계층이 아닌 제2 은닉 계층으로 들어간다.
 
@@ -45,6 +45,8 @@ DNN을 포함한 인공신경망에 있어서 **경사도 소실 문제(vanishin
   - DNN에서는 경사도 소실 문제를 극복하는 활성화 함수로 ReLU 등을 사용한다.
 
   - ReLU는 입력이 0보다 큰 구간에서는 직선 함수이기 때문에 값이 커져도 경사도를 구할 수 있다 => 따라서 **경사도 소실 문제에 덜 민감하다.**
+
+![image](https://user-images.githubusercontent.com/66320010/120432124-6cb0fc80-c3b4-11eb-9b2a-69c55ff2f62d.png)
 
 ### 3.1.3 DNN 구현 단계 ###
 
@@ -120,5 +122,149 @@ DNN을 포함한 인공신경망에 있어서 **경사도 소실 문제(vanishin
    - 분류할 클래스 수가 2개 이상이므로 loss를 categorical_crossentropy로 설정하였고 최적화는 adam방식을 사용하였다.
 
 ### 3.2.3 데이터 준비 ###
+
+3. 분류 DNN을 위한 데이터 준비
+
+    - 2.2.2절 '분류 ANN에 사용할 데이터 불러오기'와 동일하다.
+
+### 3.2.4 학습 및 성능 평가 ###
+
+4. 학습 및 성능 평가
+
+    - 학습과 성능 평가를 수행하는 것은 은닉 계층이 늘어도 분류 ANN의 구현과 같다.
+
+    - 이번 예제의 경우 ANN의 결과와 거의 유사하다. MNIST의 경우 비교적 이미지가 간단하기 때문에 ANN과 DNN의 성능 차이가 거의 없다.
+
+## 3.3 컬러 이미지를 분류하는 DNN 구현 ##
+
+필기체보다 복잡도가 높은 컬러 이미지들을 DNN으로 분류해보자.
+
+1) CIFAR-10 데이터 소개
+2) 데이터 불러오기
+3) DNN 모델링
+4) 학습 효과 분석 준비
+5) DNN 학습 및 성능 평가
+
+### 3.3.1 CIFAR-10 데이터 소개 ###
+
+CIFAR-10 데이터셋은 다음과 같이 10가지 사물이 담긴 컬러 이미지이다.
+
+총 6만 장이며, 이 중 5만 장은 학습용이고 1만 장은 평가용이다. 
+
+한 사진의 크기는 32 x 32이다. 
+
+### 3.3.2 데이터 불러오기 ###
+
+데이터 불러오는 데 필요한 패키지는 MNIST 필기체 때와 같다.
+
+    import numpy as np
+    from keras import datasets
+    from keras.utils import np_utils
+    
+이제 데이터를 불러올 차례이다. 재사용성을 고려하여 데이터 불러오기 코드를 함수로 만들고 CIFAR-10컬러 이미지 데이터를 불러온다.
+
+    def Data_func():
+      (X_train,y_train), (X_test, y_test) = datasets.cifar10.load_data()
+      
+1차원으로 구성된 목푯값 배열들인 y_train, y_test는 MNIST와 동일하게 10가지 클래스로 구분된 2차원 배열로 변환해준다.
+
+     Y_train = np_utils.to_categorical(y_train)   # np_utils.to_categorical은 원핫인코딩 해준다고 생각하면 될듯
+     Y_test = np_utils.to_categorical(y_test)
+
+   - 분류 DNN의 출력은 원소 10개로 구성된 이진 벡터이다.
+
+   - 일반적으로 분류 방식은 각 클래스마다 출력 노드가 하나이다. 출력값은 주어진 입력 이미지에 대해 각 클래스에 해당될 가능성을 나타낸다.
+
+   - CIFAR-10 데이터셋의 경우 클래스가 10개이므로 출력 노드 수는 10개가 된다. 반면 목푯값은 0 ~ 9까지 정숫값으로 저장되어 있기 때문에 정숫값을 np_utils.to_categorical()을 이용해 10개 원소를 가진 이진 벡터로 변환하였다.
+
+   - 성능 분석 등을 위해 분류 DNN의 출력값 Y_train을 이진벡터에서 정수 스칼라로 역변환할 때가 있다. 이때는 y_train = np.argmax(Y_Train,axis=1)과 같이 최댓값의 아규먼트를 찾아주면 된다.
+
+이제 **컬러값을 포함하는 이미지 배열을 DNN이 다룰 수 있도록 차원을 바꿔야한다.**
+
+    L, W, H, C = X_train.shape
+    X_train = X_train.reshape(-1, W * H * C)
+    X_test = X_test.reshape(-1, W * H * C)
+    
+   - L : 데이터 수 , W : 이미지 넓이(y축), H :이미지 높이(x축), C :이미지 채널 수 
+    
+   - DNN은 벡터 형태의 정보를 다루기 때문에 데이터의 차원을 2로하고 첫 줄은 L로 설정하고 둘째 줄은 W * H * C를 곱한 값이 되도록 한다.
+
+### 3.3.3 DNN 모델링 ###
+
+DNN 모델은 비교를 위해 3.2절에서 사용한 모델을 그대로 사용한다. 
+
+다만, 드롭아웃 확률은 함수의 아규먼트로 전달해 원하는 값으로 조정하도록 한다.
+
+    from keras import layers,models
+    
+    class DNN(models.Sequential):
+      def __init__(self,Nin,Nh_l,Pd_l,Nout):
+        super().__init__()
+        
+        self.add(layers.Dense(Nh_l[0], activation = 'relu', input_shape = (Nin,), name = 'Hidden-1'))
+        self.add(layers.Dropout(Pd_l[0]))
+        self.add(layers.Dense(Nh_l[1], activation = 'relu', name = 'Hidden-2'))
+        self.add(layers.Dropout(Pd_l[1]))
+        self.add(layers.Dense(Nout, activation = 'softmax'))
+        self.compile(loss = 'categorical_crossentropy', optimizer = 'adam', metrics=['accuracy'])
+        
+  - 초기화 함수가 Pd_l 배열을 입력받도록 했다. Pd_l은 두 아규먼트로 드롭아웃 확률을 지정한다.
+
+### 3.3.4 학습 효과 분석 ###
+
+학습 효과를 분석하는 코드는 2.2절의 코드를 임포트한다.
+
+    from ann_mnist_cl import plot_loss, plot_acc
+    import matplotlib.pyplot as plt
+    
+### 3.3.5 학습 및 성능 평가 ###
+
+사진 데이터를 분류하는 학습을 진행한 후 그 성능을 평가한다.
+
+- 모델링에 필요한 파라미터들 설정
+ 
+      Nh_l = [ 100,50 ]
+      Pd_l = [ 0.0 , 0.0 ]
+      number_of_class = 10
+      Nout = number_of_class 
+      
+    - Pd_l은 새롭게 추가된 배열이다. 이번에 정의한 DNN모델은 드롭아웃을 두 번 수행한다. 각 드롭아웃의 확률을 Pd_l로 조정할 수 있다.
+
+- 앞서 만든 Data_func()함수로 데이터 불러오기 + DNN 객체의 인스턴스 만들기
+
+      (X_train,Y_train), (X_test,Y_Test) = Data_func()
+      model = DNN(X_train.shape[1], Nh_l, Pd_l, Nout)
+  
+- 학습하기
+
+      history = model.fit(X_train, Y_train, epochs = 10, batch_size = 100, validation_split=0.2)
+
+    - 학습 진행 경과는 history 변수에 저장된다.
+
+    - 총 100회의 학습이 진행된다.
+
+- 평가 데이터를 활용해 최종 성능 알아보기
+
+      performance_test = model.evaluate(X_test,Y_test,batch_size = 100)
+      print('Test Loss and Accuracy ->' , performance_test)
+      
+- 학습이 어떻게 진행되었는지 그 과정을 그래프로 분석하기
+
+       plot_acc(history)
+       plt.show()
+       plot_loss(history)
+       plt.show()
+       
+![image](https://user-images.githubusercontent.com/66320010/120432154-7d617280-c3b4-11eb-9085-19d11820ccac.png)
+
+위 그림은 학습에서 드롭아웃을 사용하지 않은 경우이다. 그래서 학습 데이터와 검증 데잉터 간에 성능 차이가 많았다.
+
+둘이 유사하게 되려면 드롭아웃 값ㅇ을 조정해야한다.
+
+Pd_l = [0.05, 0.5]로 설정하여 과적합을 줄여 학습 데이터 성능과 검증 데이터 성능이 유사하도록 만든 것을 다음 그림에서 확인할 수 있다.
+
+![image](https://user-images.githubusercontent.com/66320010/120432289-aeda3e00-c3b4-11eb-95a5-f4a2d035d511.png)
+
+이 경우 검증 성능은 드롭아웃을 포함하지 않은 때와 차이가 크지 않지만 학습이 오래 진행되는 경우 과적합 방지를 하지 않으면 검증 성능이 다시 나빠질 수 있기 때문에 적정한 드롭아웃 값을 설정해야한다.
 
 
