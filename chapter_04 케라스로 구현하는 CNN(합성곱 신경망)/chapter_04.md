@@ -236,3 +236,144 @@ CNN은 2차원이나 그 이상 차원의 데이터 처리에 적합하다. CNN�
 5) 분류 CNN의 수행
 
 ### 4.3.1 분류 CNN 패키지 임포트 ###
+
+1. 필요한 패키지들을 임포트한다. 
+
+       from sklearn import model_selection,metrics
+       from sklearn.preprocessing import MinMaxScaler
+    
+    - sklearn의 model_selection은 **인공지능 모델의 최적화에 필요한 다양한 툴을 제공한다.**
+    
+    - metircs는 모델 결과의 성능을 나타내는 지표를 계산하는 툴을 제공한다.
+    
+    - MinMaxScaler는 지정한 최댓값과 최솟값을 이용해 입력값의 크기를 조정하는 클래스이다. 이 클래스를 사용하면 입력값의 최댓값과 최솟값이 지정한 최댓값과 최솟값이 되도록 입력 데이터의 평균과 크기를 일괄 변경한다.
+
+    유용한 기능을 제공하는 패키지도 임포트한다.
+
+        import numpy as np  # numpy는 계산용 패키지
+        import matplotlib.pyplot as plt  # 그래픽을 위한 패키지
+        import os  # 파일 처리와 관련된 툴을 제공
+
+    다음은 케라스 모델링을 위한 서브패키지들을 불러온다.
+
+        from keras import backend as K
+        from keras.utils import np_utils
+        from keras.models import Model
+        from keras.layers import Input,Conv2D, MaxPooling2D, Flatten, Dense, Dropout
+
+### 4.3.2 분류 CNN 모델링 ###
+
+2. 사용할 인공신경망 모델은 **LeNet**이다. LeNet신경망은 합성곱 방식 인공신경망이다. **합성곱 계층 두 개와 완전 연결 계층 하나로 구성된다.**
+
+    - LeNet의 구조는 다음과 같다.
+    
+    ![image](https://user-images.githubusercontent.com/66320010/120799609-ee9e5280-c579-11eb-9f47-9fdbd34c1e47.png)
+    
+    - 이 모델을 구현하기 위해 CNN 클래스를 선언하고 초기화 멤버 함수를 만든다. CNN은 모델의 일종이므로 케라스의 Model 클래스를 상속해서 만든다.
+    
+          class CNN(Model):
+              def __init__(model,nb_classes, in_shape = None):
+                  model.nb_classes = nb_classes
+                  model.in_shape = in_shape
+                  model.build_model()
+                  super().__init__(model.x,model.y)
+                  model.compile()
+                
+      - 초기화 함수는 아규먼트 nb_classes와 in_shape의 값을 같은 이름의 멤버 변수들에 각각 저장했고, build_model()로 모델을 만들었다.
+     
+      - 부모 클래스의 초기화 함수는 super().__init__()와 같이 부르고 나서 구성한 모델을 컴파일 했다.
+     
+    - 다음은 모델을 구성하는 build_model() 멤버 함수를 만든다. 함수에서 필요한 멤버 변수를 지역 변수로 치환한다.
+    
+          def build_model(model):
+            nb_classes = model.nb_classes
+            in_shape = model.in_shape
+            
+    - 주어진 입력 이미지의 크기를 처리하는 입력 계층을 정의한다. 그 다음은 완전 연결 계층으로 구성된 은닉 계층 두 개를 정의한다.
+    
+          x = Input(in_shape)
+          h = Conv2D(32,kernel_size=(3,3), activation = 'relu', input_shape = in_shape)(x)
+          h = Conv2D(64, (3,3), activation = 'relu')(h)
+        
+      - 여기서 두 은닉 계층 모두 (3,3)크기로 구성된 합성곱 필터를 사용한다.
+    
+    - 이제 합성곱 계층의 처리결과를 완전 연결 계층으로 보내기 위해 3차원 텐서를 1차원 벡터로 바꾸는 Flatten 작업이 필요하다. 합성곱 계층은 3차원 데이터를 다루지만 완전 연결 계층은 1차원 데이터를 다루기 때문에 필요한 변환 작업이다.
+   
+          h = MaxPooling2D(pool_size = (2,2))(h)  # 입력 크기가 가로 세로 두 축으로 각각 반씩 줄어듦
+          h = Dropout(0.25)(h)
+          h = Flatten()(h)   # 3차원 데이터를 1차원으로 줄임
+
+   - 여기까지가 합성곱 계층의 출력임을 변수 z_cl을 사용하여 기억해둔다.
+
+         z_cl = h
+   
+     - 이렇게 해놓고 나중에 x와 z_cl사이의 모델을 만들면 추후 합성곱 계층을 지난 결과를 별도로 분석할 수 있다.
+   
+   - 이제 완전 연결 계층으로 구성된 은닉 계층과 출력 계층을 정의할 차례이다.
+
+         h = Dense(128, activation = 'relu')(h)
+         h = Dropout(0.5)(h)
+        
+   - 출력 계층으로 나가기 전의 완전 연결 층의 출력도 별도로 저장한다.
+
+         z_fl = h
+   
+     - 이렇게 하면 x와 z_fl 사이의 모델을 별도 구성해 추후 환전 연결 계층의 출력을 분석하기 용이해진다. 
+   
+   - 출력 계층을 nb_classes에 해당하는 만큼의 노드 수로 구성하고 활성화 함수를 소프트맥스로 지정한다. 그리고 z_cl,z_fl을 이용해 부가적인 2가지 모델을 만든다.
+
+         y = Dense(nb_classes, activation = 'softmax', name = 'preds')(h)
+         model.cl_part = Model(x,z_cl)
+         model.fl_part = Model(x,z_fl)
+         
+   - 또한 본 모델을 만들 수 있도록 입력과 출력을 멤버 변수로 정의한다.
+
+         model.x , model.y = x,y
+   
+### 4.3.3 분류 CNN을 위한 데이터 준비 ###   
+   
+   
+   
+   
+   
+   
+   
+   
+   
+   
+   
+   
+   
+   
+   
+   
+   
+   
+   
+   
+   
+   
+   
+   
+   
+   
+   
+   
+   
+   
+   
+   
+   
+   
+   
+   
+   
+   
+   
+   
+   
+   
+   
+   
+   
+   
