@@ -492,9 +492,31 @@ CNN은 2차원이나 그 이상 차원의 데이터 처리에 적합하다. CNN�
    
 ### 4.3.5 분류 CNN의 학습 및 성능 평가 수행 ###   
    
-   
-   
-   
+5. 분류 CNN을 수행하는데 필요한 패키지와 aicnn.py를 임포트   
+
+       from keras import datasets
+       import keras
+       assert keras.backend.image_data_format() == 'channel_last'
+       from keraspp import aicnn
+
+    - image_data_formatdmf channel_last로 가정했으므로 만약 channels_fast로 설정된 경우 오류를 내도록 assert문을 포함했다.
+    
+aicnn.Machine을 상속받아 Machine을 작성한다.
+
+    class Maching(aicnn.Machine):  # aicnn은 코드 참고
+        def __init__(self):
+            (X,y),(x_test,y_test) = datasets.cifar10.load_data()   # cifar10데이터를 가져와서 aicnn.Machine()을 사용할 수 있음
+            super().__init__(X,y,nb_classes = 10) 
+
+메인 함수 구성해 Machine을 돌릴 차례이다.
+
+    def main():
+        m = Machine()
+        m.run()
+
+    if __name__ == '__main__' :
+        main()
+
    
    
    
