@@ -263,7 +263,7 @@ CNN은 2차원이나 그 이상 차원의 데이터 처리에 적합하다. CNN�
 
 ### 4.3.2 분류 CNN 모델링 ###
 
-2. 사용할 인공신경망 모델은 **LeNet**이다. LeNet신경망은 합성곱 방식 인공신경망이다. **합성곱 계층 두 개와 완전 연결 계층 하나로 구성된다.**
+2. 사용할 인공신경망 모델은 **LeNet**. LeNet신경망은 합성곱 방식 인공신경망. **합성곱 계층 두 개와 완전 연결 계층 하나로 구성.**
 
     - LeNet의 구조는 다음과 같다.
     
@@ -332,23 +332,165 @@ CNN은 2차원이나 그 이상 차원의 데이터 처리에 적합하다. CNN�
    
 ### 4.3.3 분류 CNN을 위한 데이터 준비 ###   
    
+3. DataSet 클래스는 데이터를 머신러닝에 사용하기 적합하도록 조정하는 역할
+
+    - 먼저 클래스를 선언하고 초기화를 진행한다.
+
+          class DataSet() :
+             def __init__(self,X,y,nb_classes,scaling = True, test_size = 0.2, random_state = 0):
+        
+        - 이 클래스는 입력과 출력 변수로 X,y를 입력받고 y에 대한 클래스 수를 nb_classes로 제공받는다.
+
+    - 입력값인 X를 멤버 변수로 지정한 후 채널 정보를 추가한다.
+
+          self.X = X
+          self.add_channels()
+          X = self.x
+
+    - 채널이 추가된 X와 목표값 y전체에서 학습과 검증에 사용할 데이터를 분리한다.
+
+          X_train, X_test,y_train,y_test = model_selection.train_test_split(X,y,test_size = 0.2, random_state = random_state)
    
+    - 이미지 데이터가 정수인 경우가 있으니 32비트 규격의 실수로 바꿔준다.
+
+          X_train = X_train.shape('float32')
+          X_test = X_test.shape('flaod32')
+         
+    - 아규먼트 scaling이 True인 경우 이미지의 최댓값과 최솟값이 특정한 값이 되도록 스케일링 시킨다.
+
+          if scaling:
+            sclaer = MinMaxScaler()
+            n = X_train.shape[0]
+            X_train = scaler.fit_transform(X_train.reshape(n,-1)).reshape(X_train.shape)
+            n = X_test.shape[0] 
+            X_test = scaler.fit_transform(X_test.reshape(n,-1)).reshape(X_test.shape)
+            self.scaler = scaler
+         
+        - 스케일링에 sklearn의 MinMaxSclaer()클래스를 사용했다. 이때 스케일링 기준은 학습 데이터는 X_train으로만 해야한다. X_test는 X_train으로부터 정해진 기준을 따르게 한다.
+
+    - 출력값은 원핫 인코딩을 이용해 정숫값을 이진 벡터로 바꿔준다.
+
+          Y_train = np_utils.to_categorical(y_train,nb_classes)
+          Y_test = np_utils.to_categorical(y_test,nb_classes)
    
+    - 학습과 검증에 사용할 데이터들을 멘버 변수로 등록한다.
+
+          self.X_train, self.X_test = X_train, X_test
+          self.Y_train, self.Y_test = Y_Train, Y_test
+          self.y_train, self.y_test = y_train, y_test
+          
+        - 이제 DataSet클래스의 인스턴스를 활용해 학습 및 검증 데이터를 자유롭게 사용할 수 있다.
+
+    - 다음은 채널 정보를 데이터에 포함시키는 과정이다.
+
+          def add_channels(self):
+             X = self.X
+
+             if len(X.shape) == 3 :
+                N, img_rows, img_cols = X.shape
+                
+                if K.image_dim_ordering() == 'th':
+                    X = X.reshape(X.shape[0],1,img_rows,img_cols)
+                    input_shape = (1, img_rows,img_cols)
+                else :
+                    X = X.reshape(X.shape[0], img_rows,img_cols,1)
+                    input_shape = (img_rows,img_cols,1)
+                   
+             else:
+                input_shape = X.shape[1:]
+                
+             self.X = X
+             self.input_shape = input_shape
+
+        - 컬러 이미지에는 이미 채널 정보가 들어 있기 때문에 if len(X.shape) == 3으로 흑백 이미지인지를 검사하고 진행했다.
+        
+        - 케라스의 환경 변수인 image_dim_ordering이 th 즉 시애노 방식의 데이터 포맷을 사용한다면 채널 정보를 길이 정보 바로 다음에 두 번째 차원으로 삽입한다.
+        
+        - 그렇지 않고 텐서플로 방식의 데이터 포맷의 경우는 맨 마지막에 넣어준다. 이렇게 변경된 경우 input_shape에는 X의 각 원소의 형태를 입력한다.
    
+### 4.3.4 분류 CNN의 학습 및 성능 평가를 위한 머신 클래스 구현 ###
+
+4. Machine은 학습 및 성능 평가 코드가 들어있는 클래스
+
+    - 클래스 코드의 시작을 선언한다. Machine은 부모 클래스가 없는 최상단 클래스이다.
+
+          class Machine():
+              def __init__(self,X,y,nb_classes = 2, fig = True) :
+                  self.nb_classes = nb_classes
+                  self.set_data(X,y)   # 데이터를 설정하는 함수
+                  self.set_model()   # model을 설정하는 함수
+                  self.fig = fig
+    
+    - 데이터를 지정하는 함수는 DataSet클래스를 이용해 구현한다.
+
+          def set_data(self,X,y):
+            nb_classes = self. nb_classes
+            self.data = DataSet(X,y,nb_classes)  # 입력 받은 X,y와 클래스 수를 DataSet에 제공하여 그 결과는 self.data라는 멤버 변수에 저장
+            
+    - 다음은 모델을 설정하는 함수이다.
+
+          def set_model(self):
+            nb_classes = self.nb_classes
+            data = self.data
+            self.model = CNN(nb_classes = nb_classes, in_shape = data.input_shape)
+           
+        - 모델은 CNN 클래스를 활용해 만들었고 그 결과를 멤버 변수에 저장했다.
+
+    - 다음은 학습을 진행할 멤버 함수를 만든다.
+
+          def fit(self,nb_epoch = 10, batch_size = 128, verbose = 1):
+            data = self.data
+            model = self.model
+            history = model.fit(data.X_train,data.Y_train, batch_size = batch_size , epochs = nb_epoch, verbose = verbose, validation_data(data.X_test, data.Y_test)   # verbose : 화면에 진행 사항 표시 방법
+            
+            return history
    
+       - 먼저 data와 model을 해당 멤버 변수로부터 가져온다. 멤버 변수를 바로 사용하지 않은 이유는 코드의 복잡도를 줄이기 위해서이다.
+
+    - 학습과 성능 평가 전체를 진행하는 run() 멤버 함수를 구현할 차례이다. 함수 길이가 길어 4단계로 나누어 설명한다.
+
+        - 먼저 run()함수를 정의하고 멤버 변수 중 사용할 변수를 지정
+        
+              def run(self,nb_epoch =10, batch_size = 128, verbose = 1):
+                data = self.data
+                model = self.model
+                fig = self.fig
+         
+        - 다음은 함수내에서 학습과 성능 평가를 담당하는 부분
+        
+              history = self.fit(nb_epoch = nb_epoch, batch_size = batch_size, verbose = verbose)  #  self.fit()은 model.fit()과 동일하지만 학습 후 학습 곡선을 self.history에 저장한다는 점이 다름
+              score = model.evaluate(data.X_test,data.Y_test,verbose = 0)
+              print('Confusion matrix')
+              Y_test_pred = model.predict(data.X_test, verbose =0)
+              y_test_pred = np.argmax(Y_test_pred,axis = 1)
+              print(metrics.confusion_matrix(data.y_test,y_test_pred))
+              
+              print('Test score:', score[0])
+              print('Test accuracy:', score[1])
+              
    
+        - 학습 곡선과 학습으로 생성될 모델을 추후 사용하거나 분석하기 위해 저장
+
+              suffix = sfile.unique_filename('datatime')   # 현재 시간을 초 단위로 구해 새로운 이름을 만듦
+              foldname = 'output' + suffix
+              os.makedirs(foldname)  # 새로운 저장용 폴더 만듦
+              skeras.save_history_history('history_history.npy', history.history, fold = foldname)  # skeras는 이전 장에서 구현한 코드
+              model.save_weights(os.path.join(foldname, 'dl_model.h5'))  # 학습된 모델의 가중치는 dl_model.h5에 저장
+              print('Output reselts are saved in', foldname)   # 매번 저장 시 새로웅ㄴ 폴더안에 저장되어 추후 이전 결과를 볼 때 유리
+              
+        - 다음은 fig 플래그가 True라면 화면에 학습 곡선을 그린다.
+
+              if fig:
+                plt.figure(figsize = (12,4))
+                plt.subplot(1,2,1)
+                skeras.plot_acc(history)  # 정확도 학습곡선   # skeras는 이전 장에서 구현한 코드
+                plt.subplot(1,2,2)
+                skeras.plot_loss(history)  # 손실 학습곡선
+                plt.show()
+                
+              self.history = history
    
-   
-   
-   
-   
-   
-   
-   
-   
-   
-   
-   
+### 4.3.5 분류 CNN의 학습 및 성능 평가 수행 ###   
    
    
    
