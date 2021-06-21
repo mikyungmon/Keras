@@ -476,7 +476,7 @@ CNN은 2차원이나 그 이상 차원의 데이터 처리에 적합하다. CNN�
               os.makedirs(foldname)  # 새로운 저장용 폴더 만듦
               skeras.save_history_history('history_history.npy', history.history, fold = foldname)  # skeras는 이전 장에서 구현한 코드
               model.save_weights(os.path.join(foldname, 'dl_model.h5'))  # 학습된 모델의 가중치는 dl_model.h5에 저장
-              print('Output reselts are saved in', foldname)   # 매번 저장 시 새로웅ㄴ 폴더안에 저장되어 추후 이전 결과를 볼 때 유리
+              print('Output reselts are saved in', foldname)   # 매번 저장 시 새로운 폴더안에 저장되어 추후 이전 결과를 볼 때 유리
               
         - 다음은 fig 플래그가 True라면 화면에 학습 곡선을 그린다.
 
