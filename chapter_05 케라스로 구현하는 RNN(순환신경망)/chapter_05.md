@@ -106,7 +106,7 @@ IMDB는 25,000건의 영화평과 이진화된 영화 평점 정보(추천 = 1, 
       x_train = sequence.pad_sequences(x_train,maxlen = maxlen)
       x_test = sequence.pad_sequences(x_test, maxlen = maxlen)
       
-    -문장에서 maxlen이후에 있는 단어들은 케라스 서브패키지인 sequence에서 제공하는 pad_sequences()함수로 잘라낸다.
+    - 문장에서 maxlen이후에 있는 단어들은 케라스 서브패키지인 sequence에서 제공하는 pad_sequences()함수로 잘라낸다.
     
     - 여기서는 최대 길이를 80으로 설정했다. 문장 길이가 maxlen보다 작으면 부족한 부분을 0으로 채운다. value라는 키워드 아규먼트로 채우는 값을 설정할 수 있다.
 
