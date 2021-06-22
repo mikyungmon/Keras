@@ -97,7 +97,7 @@ IMDB는 25,000건의 영화평과 이진화된 영화 평점 정보(추천 = 1, 
 
       class Data :
         def __init__(self,max_features = 20000, maxlen = 80):
-      (x_train,y_train_, (x_test,y_test) = imdb.load_data(num_words = max_features)
+      (x_train,y_train), (x_test,y_test) = imdb.load_data(num_words = max_features)
         
   - 서브패키지인 imdb안에 load_data()함수를 이용해 데이터를 불러온다. 불러올 때 최대 단어 빈도를 max_features값으로 제한했다.
 
