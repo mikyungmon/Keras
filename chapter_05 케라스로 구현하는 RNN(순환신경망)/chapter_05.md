@@ -167,4 +167,4 @@ IMDB는 25,000건의 영화평과 이진화된 영화 평점 정보(추천 = 1, 
         model.fit(x_train, y_train, batch_size = batch_size, epochs = epochs, validation_data = (x_test, y_test))
         
         score, acc = model.evaluate(data.x_test,data.y_test, batch_size = batch_size)  # 학습 잘 되었는지 평가 데이터 이용해 확인, 검증 데이터와 평가 데이터 같은 것으로 사용
-        print('Test performance: accuracy={0}, loss{1}, format(acc,score)
+        print('Test performance: accuracy={0}, loss{1}'.format(acc,score)
