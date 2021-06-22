@@ -168,3 +168,142 @@ IMDB는 25,000건의 영화평과 이진화된 영화 평점 정보(추천 = 1, 
         
         score, acc = model.evaluate(data.x_test,data.y_test, batch_size = batch_size)  # 학습 잘 되었는지 평가 데이터 이용해 확인, 검증 데이터와 평가 데이터 같은 것으로 사용
         print('Test performance: accuracy={0}, loss{1}'.format(acc,score)
+
+## 5.3 시계열 데이터를 예측하는 LSTM 구현 ## 
+
+LSTM을 이용해 시계열 데이터에 대한 예측을 해본다.
+
+세계 항공 여행 승객 수의 증가에 대한 데이터를 활용하여 이전 12개월치 승객 수를 이용해 다음 달의 승객 수를 예측한다.
+
+다음과 같은 순서로 시계열 예측 인공신경망을 구현한다.
+
+1) 패키지 임포트
+2) 코드 실행 및 결과 보기
+3) 학습하고 성능 평가하기
+4) LSTM 회귀 모델링
+5) 데이터 불러오기
+
+### 5.3.1 패키지 임포트 ### 
+
+:one: 데이터를 불러오고 기본적인 처리를 하는 데 필요한 두 패키지를 임포트 한다.
+
+    import pandas as pd
+    import numpy as np
+    import seaborn as sns
+  
+  - pandas는 엑셀과 같이 시트로 관리되는 데이터를 처리하는 패키지이다.
+
+  - seaborn은 통계 그래프를 그리는 패키지이다.
+
+- 모델링을 진행한 후 성능 평가는 매우 중요하다. 이를 위해서는 일부 데이터를 성능 평가에 사용하도록 학습에 사용하지 않고 남겨 두어야 한다.
+
+      from sklearn import model_selection
+     
+   - model_selection()은 데이터를 학습과 검증용으로 나누는 함수이다.
+
+- 이제 케라스와 관련된 패키지들을 임포트한다.
+
+      from keras import models, layers
+     
+### 5.3.2 코드 실행 및 결과 보기 ### 
+
+:two: 세부 코드를 보기 전에 머신을 만들고 실행하는 부분을 먼저 보자.
+
+- LSTM을 이용하는 회귀 인공신경망을 실행하는 코드의 첫 줄은 다음과 같다.
+
+      def main():
+        machine = Machine()  # Machine()클래스를 이용해 machine을 인스턴스로 만듦
+        machine.run(epochs = 400)
+        
+     - 이 줄을 실행하면 데이터 시각화 그래프 두 개와 모델링 요약 정보가 출력된다.
+
+     - machine 인스턴스를 이용해 학습 및 성능 평가를 진행한다. 
+        
+### 5.3.3 학습하고 평가하기 ### 
+
+3️⃣ 머신 클래스는 시계열 LSTM을 학습하고 평가하는 플랫폼이다. 초기화 함수와 실행 함수를 만들면 된다.
+
+- 우선 클래스를 선언한 후 머신을 초기화 한다.
+
+      class Machine():
+        def __init__(self):
+          self.data = Dataset()  # 데이터 생성에 사용한 Dataset()클래스의 인스턴스 만듦
+          shape = self.data.X.shape[1:]   # LSTM의 입력 계층 크기를 shape변수에 저장
+          self.model = rnn_model(shape)
+          
+- 이제 머신을 실행하는 멤버 함수를 만들 차례이다. 
+
+      def run(self, epochs = 400):
+        d = self.data
+        X_train,X_test = d.X_train, d.X_test
+        y_train, y_test = d.y_train, d.y_test
+        X,y = d.X, d.y
+        m = self.model
+
+- 모델의 학습을 진행할 차례이다.
+
+      h = m.fit(X_train,y_train, epochs = epochs, validation_data = [X_test, y_test], verbose =0)  # 학습
+      
+- 학습이 얼마나 잘 진행되었는지를 알아본다.
+
+      yp = m.predict(X_test).reshape(-1)
+      print('Loss:', m.evaluate(X_test,y_test)
+      
+- 그래프를 이용해 원래 레이블 정보인 y_test와 예측한 레이블 정보인 yp를 같이 그려서 서로 비교한다.
+
+      yp = m.predict(X_test).reshape(-1)
+      print('Loss:', m.evaluate(X_test,y_test)
+      plt.plot(yp, label = 'original')
+      plt.plot(y_test, label = 'prediction')
+      plt.legend(loc=0)
+      plt.title('validation results')
+      plt.show()
+      
+:heavy_exclamation_mark: 그러나 이 방법은 데이터가 시간적인 관계가 없는데 시간순으로 되어있어서 확인에 효과적이지 않을 수 있다. 따라서 막대 그래프를 이용해 다음과 같이 그리도록 했다.
+
+    yp = m.predict(X_test).reshape(-1)
+    print('Loss:', m.evaluate(X_test,y_test))
+    print(yp.shape,y_test.shape)
+    
+    df = pd.DataFrame()
+    df['Sample'] = list(range(len(y_test))) * 2
+    df['Normalized #Passengers'] = np.concatenate([y_test,yp], axis =0)
+    df['Type'] = ['original'] *len(y_test) + ['prediction'] * len(yp)
+    
+    plt.figure(figsize = (7,5))
+    sns.barplot(x="Sample", y="Normalized #Passengers", hue = "Type", data = df)
+    plt.y_label('Normalized #Passengers')
+    plt.show()
+    
+  - 막대 그래프 그리는 데 seaborn 패키지 이용하였다. 
+
+  - pandas 패키지 이용해 시계열 데이터를 데이터 프레임으로 변환해 seaborn에 제공한다.
+
+  - 목표 결과와 예측 결과를 비교하기 위해 다음과 같은 방법으로 시계열 데이터를 3개의 열로 구성된 데이터 프레임으로 변환했다.
+  
+    1. 목표 결과와 예측 결과의 순서를 표시하는 Sample이라는 열을 만든다. 이 열은 0부터 len(y_test)-1까지 정수가 두 번 반복되어 들어간다. 첫 번째는 목표 결과의 순서이고 두 번째는 예측 결과의 순서이다.
+    2. 목표 결과와 예측 결과를 순서대로 결합해서 'Normalized #Passnegers'라는 열을 만든다.
+    3. 두 열들의 앞쪽은 모두 목표 결과와 관련된 정보이고 뒤쪽은 모두 예측 결과와 관련된 정보임을 표시하는 Type열을 만든다.
+
+- 이제 학습 데이터와 평가 데이터의 결과를 합쳐서 보여준다.
+
+      yp = m.predict(X)
+      plt.plot(yp, label = 'original')
+      plt.plot(y, label = 'prediction')
+      plt.legend(loc=0)
+      plt.title('All results')
+      plt.show()
+
+  - 모델의 멤버 함수인 predict를 이용해 X_test가 아닌 전체 데이터인 X에 대해 예측하도록 했다.
+
+  - 그리고 그 결과를 원래 레이블 정보를 시간 축으로 그렸다. 전체 데이터가 시간순으로 배열되어 있기 때문이다.
+
+
+
+
+
+
+
+
+
+
