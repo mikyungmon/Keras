@@ -63,24 +63,108 @@ LSTM을 이용하여 문장의 의미를 이해하는 예제를 구현해보자.
 
 :one: LSTM을 이용한 판별망 구현에 필요한 라이브러리 임포트를 먼저 살펴본다.
 
-먼저 __ future__패키지에서 print_fuction을 불러온다.
+- 먼저 __ future__패키지에서 print_fuction을 불러온다.
 
-    from __future__ import print_fuction
+      from __ future__ import print_fuction
 
-  - 이 패키지는 파이썬 2와 파이썬 3간의 호환성을 위한 것이다. 코드의 가장 첫 부분에 이렇게 정의하고 나면 파이썬 3문법으로 pring()명령을 사용해도 파이썬 2에서도 코드를 돌릴 수 있게 된다. 
+     - 이 패키지는 파이썬 2와 파이썬 3간의 호환성을 위한 것이다. 코드의 가장 첫 부분에 이렇게 정의하고 나면 파이썬 3문법으로 pring()명령을 사용해도 파이썬 2에서도 코드를 돌릴 수 있게 된다. 
   
     :heavy_exclamation_mark: 예제들은 파이썬 3을 기반으로 한다. 이 예제들이 파이썬 2에서 돌아가도록 쉽게 고치는 방법이 있는데 그 중 하나가 __ future__패키지를 사용하는 것이다. 여기서는 패키지 기능 중 가장 많이 사용되는 print_fuction에 대해서만 간단히 설명하였다(파이썬 2에서는 print가 함수 아니라서 괄호 달지 않고 사용, 파이썬 3는 함수로 다루기 때문에 괄호가 필요).
   
+ - RNN에 필요한 케라스 클래스들을 불러온다.
 
+       from keras.preprocessing import sequence
+       from keras.datasets import imdb
+       from keras import layers,models
+       
+     - sequence는 preprocessing이 제공하는 서브패키지이다. 이 패키지는 pad_sequence()와 같은 sequence를 처리하는 함수를 제공한다.
 
+     - models는 케라스 모델링에 사용되는 서브패키지이다.
 
+     - layers는 인공신경망의 계층을 만드는 서브패키지이고 이 layer 아래에 들어있는 Dense,Embedding,LSTM을 사용한다. Dense는 완전 연결 계층을 만드는 클래스이고 Embedding은 단어를 의미 벡터로 바꾸는 계층에 대한 클래스이며, LSTM은 LSTM계층을 만드는 클래스이다.
 
+### 5.2.2 데이터 준비 ###
 
+:two: 데이터는 케라스가 제공하는 공개 데이터인 IMDB를 사용한다.
 
+IMDB는 25,000건의 영화평과 이진화된 영화 평점 정보(추천 = 1, 미추천 = 0)를 담고 있다.
 
+평점 정보는 별점이 많은 경우는 긍정, 그렇지 않은 경우는 부정으로 나눠진 정보이다.
 
+이 예제는 학습을 마친 후 인공신경망이 주어진 영화평을 분석해 영화 평점 정보를 예측한다.
 
+- 먼저 Data 클래스를 선언하고 IMDB데이터셋을 불러온다.
 
+      class Data :
+        def __init__(self,max_features = 20000, maxlen = 80):
+      (x_train,y_train_, (x_test,y_test) = imdb.load_data(num_words = max_features)
+        
+  - 서브패키지인 imdb안에 load_data()함수를 이용해 데이터를 불러온다. 불러올 때 최대 단어 빈도를 max_features값으로 제한했다.
 
+- 일반적으로 데이터셋에 들어 있는 문장들은 길이가 다르기 때문에 LSTM이 처리하기 적합하도록 길이를 통일하는 작업을 진행한다.
 
+      x_train = sequence.pad_sequences(x_train,maxlen = maxlen)
+      x_test = sequence.pad_sequences(x_test, maxlen = maxlen)
+      
+    -문장에서 maxlen이후에 있는 단어들은 케라스 서브패키지인 sequence에서 제공하는 pad_sequences()함수로 잘라낸다.
+    
+    - 여기서는 최대 길이를 80으로 설정했다. 문장 길이가 maxlen보다 작으면 부족한 부분을 0으로 채운다. value라는 키워드 아규먼트로 채우는 값을 설정할 수 있다.
 
+### 5.2.3 모델링 ###
+
+:three: LSTM 모델링을 위한 클래스를 선언한다.
+
+    class RNN_LSTM(models.Model):   # 모델링은 models.Model 클래스를 상속하여 만듦
+      def __init__(self,max_features maxlen)
+       
+먼저 입력층을 만들고 다음으로 임베딩 계층을 포함한다.      
+  
+    model = Sequential()
+    model.add(Embedding(max_features,128))
+    model.add(LSTM(128, dropout=0.2, recurrent_dropout=0.2))
+    model.add(Dense(1,activation = 'sigmoid'))
+         
+최대 특징 점수는 max_features에 정의된 20,000으로 설정했고 임베딩 후 출력 벡터 크기를 128로 설정했다.
+      
+    x = layers.Input((maxlen,))
+    h = layers.Embedding(max_features, 128)(x)
+
+입력에 각 샘플은 80개의 원소로 된 1차 신호열이었지만 임베딩 계층을 통과하면서 각 단어가 128의 길이를 가지는 벡터로 바뀌면서 입력 데이터의 모야야이 80 * 128로 변경된다.
+
+다음으로 노드 128개로 구성된 LSTM 계층을 포함한다.
+
+    h = layers.LSTM(128,dropout = 0.2, recurrent_dropout = 0.2)(h)   # 일반 드롭아웃, 순환 드롭아웃 모두 20%로 설정
+      
+최종적으로 출력을 시그모이드 활성화 함수로 구성된 출력 노드 하나로 구성한다.  
+
+    y = layers.Dense(1, activation = 'sigmoid')(h)
+    super().__init__(x,y)
+    
+손실 함수와 최적화 함수를 아규먼트로 지정하여 모델을 컴파일한다.
+
+    model.compile(loss = 'binary_crossentropy', optimizer = 'adam'. metrics = ['accuracy']
+    
+  - 긍정인지 부정인지에 대한 이진 판별값을 출력으로 다루므로 손실 함수를 binary_crossentropy로 , 최적화 함수를 adam으로 설정했다.
+
+### 5.2.4 학습 및 성능 평가 ###
+
+:four: 학습 및 성능 평가를 담당할 머신 클래스를 만든다.
+
+    class Machine:
+      def __init__(self, max_features = 20000, maxlen = 80):   # max_features는 다루는 단어의 최대 수, 글에는 다양한 단어가 무작위로 사용되지만 빈도 순위가 20,000등 안에 드는 단어까지 취급한다는 의미
+        self.data = Data(max_features, maxlen)    # maxlen은 한 문장의 최대 단어 수 의미
+        self.model = RNN_LSTM(max_features, maxlen)
+    
+    
+- 학습과 평가를 수행할 run() 멤버 함수를 만든다.
+
+      def run(self, epochs = 3, batch_size = 32):
+        data = self.data
+        model = self.model
+        print('Training stage')
+        print('========================')
+        
+        model.fit(x_train, y_train, batch_size = batch_size, epochs = epochs, validation_data = (x_test, y_test))
+        
+        score, acc = model.evaluate(data.x_test,data.y_test, batch_size = batch_size)  # 학습 잘 되었는지 평가 데이터 이용해 확인, 검증 데이터와 평가 데이터 같은 것으로 사용
+        print('Test performance: accuracy={0}, loss{1}, format(acc,score)
