@@ -115,7 +115,7 @@ IMDB는 25,000건의 영화평과 이진화된 영화 평점 정보(추천 = 1, 
 :three: LSTM 모델링을 위한 클래스를 선언한다.
 
     class RNN_LSTM(models.Model):   # 모델링은 models.Model 클래스를 상속하여 만듦
-      def __init__(self,max_features maxlen)
+      def __init__(self,max_features, maxlen)
        
 먼저 입력층을 만들고 다음으로 임베딩 계층을 포함한다.      
   
