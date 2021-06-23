@@ -298,6 +298,117 @@ LSTM을 이용해 시계열 데이터에 대한 예측을 해본다.
 
   - 그리고 그 결과를 원래 레이블 정보를 시간 축으로 그렸다. 전체 데이터가 시간순으로 배열되어 있기 때문이다.
 
+### 5.3.4 LSTM 시계열 회귀 모델링  ### 
+
+:four: 시계열 데이터의 회귀 모델링을 위한 LSTM 모델링
+
+- LSTM 모델의 구성은 다음 그림과 같다.
+
+![image](https://user-images.githubusercontent.com/66320010/123036703-71ebef00-d428-11eb-8176-0c540af4c3d1.png)
+
+- 케라스 라이브러리에서 제공하는 Model을 이용해 모델을 만든다. 먼저 입력 계층을 정의한다.
+
+      m_x = layers.Input(shape = shape)
+      
+   - 입력 계층에 제공되는 데이터 모양은 shape에 따라 정의된다.
+
+   - X가 입력 데이터라면 shape = X.shape[1:]과 각 샘플의 크기의 해당한다.
+
+- 다음은 LSTM 계층과 출력 계층을 설정한다.
+
+      m_h = layers.LSTM(10)(m_x)
+      m_y = layers.Dense(1)(m_h)
+      
+   - LSTM 노드 수는 10으로 정의했고 출력 계층의 노드 수는 이진 판별이므로 1로 정의했다.
+
+- 입력과 출력 데이터 모양이 정해졌으니 모델을 정의한다.
+
+      m = models.Model(m_x, m_y)
+      
+- 모델을 구성했으므로 컴파일을 한다. 그리고 어떻게 모델이 만들어졌는지 화면에 요약해 출력한다.
+
+      m.compile('adam', 'mean_squared_error')
+      m.summary()
+      
+   - 요약을 보면 입력 계층은 12개의 시간열과 1개의 특징점으로 구성되어 있다.
+
+   - LSTM은 10개의 노드로 구성되어 있고 이를 처리하는 내부 파라미터가 480개이다.
+
+   - 최종 출력 계층의 노드는 하나이며 LSTM과 출력 계층 사이에 적용되는 가중치 수는 11개이다. 11개 중 10개는 입력값에 대한 가중치이고 1개는 평균값을 조절하는 가중치이다.
+
+### 5.3.5 데이터 불러오기 ### 
+
+:five: 데이터는 Dataset 클래스를 구성해서 불러온다.
+
+- 클래스를 선언하고 초기화 함수를 정의한다.
+
+      class Dataset:
+        def __init__(self, fname = 'international-airline-passengers.csv', D=12):   # D는 시계열 길이
+        
+- 데이터를 불러와서 학습 데이터와 평가 데이터를 나눈다.
+
+      data_dn = load_data(fname = fname)
+      X,y = get_Xy(data_dn,D=D)
+      X_train, X_test, y_train, y_test = model_selection.train_test_split(X,y,test_size = 0.2, random_state = 42)
+      
+- 이 과정이 끝나면 이 클래스를 이용할 때 결과를 볼 수 있도록 결과를 멤버 변수에 저장한다.
+
+      self.X, self.y = X,y
+      self.X_train, self.X_test = X_train, X_test
+      self.y_train, self.y_test = y_train, y_test
+      
+   - X,y와 X_train, X_test, y_train, y_test는 이 클래스의 인스턴스를 이용해 사용할 수 있다.
+
+- load_data()함수를 구현할 차례이다. 함수를 선언하고 pandas 패키지를 이용해 데이터 시트 구조로 된 데이터를 불러온다.
+
+      dataset = pd.read_csv(fname, usecols =[1], engine = 'python', skipfooter = 3 )
+      data = dataset.values.reshape(-1)
+      
+  - 데이터 시트 중에서 승객 수에 해당하는 1번째 열만 불러온다. 그리고 dataset을 pandas 데이터 프레임 구조에서 넘파이 행렬로 바꾼 뒤 넘파이 행렬을 1차원 모양으로 바꾸어준다.
+
+- 불러온 데이터가 어떻게 되어 있는지 선 그래프로 표시한다.
+
+      plt.plot(data)
+      plt.xlabel('Time'); plt.ylabel('#Passengers')
+      plt.title('original data')
+      plt.show()
+      
+   - x축이 time이고 y축이 #passengers임을 표현했다.
+
+- 데이터를 표준화 한다. 표준화 방법은 평균을 제거하고 분산을 단위 값으로 만드는 기법이다. 여기서는 분산의 제곱근을 5로 나눈다.
+
+      data_dn = (data - np.mean(data))/ np.std(data)/5
+      plt.plot(data_dn)
+      plt.xlabel('Time'); plt.ylabel('Normalized #Passengers')
+      plt.title('Normalized data by $E[]$ and $5\sigma$')
+      plt.show()      
+
+- 다음으로 get_Xy()함수를 구현한다.
+
+      def get_Xy(data, D=12):
+      X_l = []
+      y_l = []
+      N = len(data)
+      assert N>D, "N should be larger than D, where N is len(data)"
+      for ii in range(N-D-1):
+        X_l. append(data[ii:ii+D])
+        y_l.append(data[ii+D])
+      X = np.array(X_l)
+      X = X.reshape(X.shape[0], X.shape[1],1)
+      y = np.array(y_l)
+      print(X.shape, y.shape)
+      
+      return X,y
+
+  - D샘플 만큼의 시계열 데이터를 한 칸씩 옮겨가면서 시계열 벡터로 만들었다. 그리고 D+1 샘플의 값을 레이블로 했다.
+
+  - 즉 D개월간의 승객 수 변화를 통해 그다음 달의 승객 수를 예측할 수 있는지를 알아보는 데이터셋을 만들었다.
+
+
+
+
+
+
 
 
 
