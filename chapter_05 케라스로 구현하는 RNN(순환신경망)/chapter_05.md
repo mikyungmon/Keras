@@ -247,7 +247,7 @@ LSTM을 이용해 시계열 데이터에 대한 예측을 해본다.
 - 학습이 얼마나 잘 진행되었는지를 알아본다.
 
       yp = m.predict(X_test).reshape(-1)
-      print('Loss:', m.evaluate(X_test,y_test)
+      print('Loss:', m.evaluate(X_test,y_test))
       
 - 그래프를 이용해 원래 레이블 정보인 y_test와 예측한 레이블 정보인 yp를 같이 그려서 서로 비교한다.
 
