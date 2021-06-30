@@ -120,17 +120,313 @@ AE를 구성하는 계층이 완전 연결 계층이라고 가정하자.
   
   - 외부에 새롭게 들어오는 입력에 대응하므로 새로운 입력을 Input()으로 만들었다.
 
-  - 그리고 다음 은닉 계층은 기존에 사용하던 은닉 곛ㅇ을 다시 사용하기 때문에 기존에 만든 계층 중 하나를 변수 self에서 가져왔다.
+  - 그리고 다음 은닉 계층은 기존에 사용하던 은닉 계층을 다시 사용하기 때문에 기존에 만든 계층 중 하나를 변수 self에서 가져왔다.
 
   - self.layers[-1]은 제일 마지막 부분 즉 AE 자신의 출력 계층이라는 의미이다.
 
 ✅ 지금까지 **AE 고유 모델과 부호화와 복호화를 각각 수행하는 추가 모델을 만들었다.** 고유 모델을 만들 때 공통 파라미터를 자기 멤버 변수로 지정해두어 손쉽게 추가 모델을 구현할 수 있었다.
 
+### 6.2.2 데이터 준비 ###
 
+2️⃣ 사용한 MNIST데이터는 케라스의 서브패키지로 불러온다.
 
+    from keras.datasets import mnist
+    
+    (x_train,_),(x_test,_) = mnist.load_data()
+    
+  - 여기서는 레이블 정보를 밑줄( _ )로 전달 받았다. 두 밑줄은 각각 학습과 검증 데이터에 대한 레이블 정보를 받는 자리이다. 그러나 AE에서는 레이블 정보가 사용되지 않기 때문에 밑줄로 대체했다.
 
+  ❗ 왜 AE에는 레이블 정보가 필요 없을까? AE가 비학습 신경망이기 때문이다. AE는 레이블 정보 대신 입력 데이터가 곧 출력 데이터로 설정된다. 
+  
+- 0부터 255 중에 하나로 표현되는 입력 이미지들의 값이 1 이하가 되도록 정규화 한다.
 
+      x_train = x_train.astype('float32') / 255.
+      x_test = x_test.astype('float32')/ 255.
+      
+- DNN 즉 완전 연결 계층 구조에 적합하도록 아규먼트의 형태를 3차원에서 2차원으로 확대한다.
 
+      x_train = x_train.reshape((len(x_train),-1))
+      x_test = x_test.reshape((len(x_test),-1))
+      
+    - 여기서 2차원으로 차원이 축소된 왼쪽 변수들의 첫 번째 인덱스는 이미지 수를 나타내고 두 번째 인덱스는 각 2차원의 이미지를 1차원으로 바꾼 후의 이미지 길이를 나타낸다.
 
+### 6.2.3 완전 연결 계층 AE 학습 ###
 
+- 먼저 학습할 모델에 사용될 주요 파라미터들과 AE모델의 인스턴스를 정의한다.
 
+      x_nodes = 784
+      z_dim = 36
+      
+      autoencoder = AE(x_nodes, z_dim) 
+      
+ - 이제 autoencoder를 이용하여 학습과 성능 검증을 수행할 수 있다. 학습은 fit()멤버 함수로 수행한다.
+
+       history = autoencoder.fit(x_train,x_train, epochs = 10, batch_size = 256, shuffle = True, validation_data = (x_test,x_test))
+    
+    - 입력과 출력을 모두 x_train으로 설정하여 학습한다. 다시말해 AE의 출력을 입력과 동일하게 x_train으로 설정한 것이다. 
+     
+    - 학습 시 성능 검증은 학습 후 성능 평가에 사용할 x_test로 수행한다.
+
+### 6.2.4 학습 효과 분석 ### 
+
+3️⃣ 학습 효과를 그래프로 분석하기 위해 필요한 함수들과 패키지를 불러온다.
+
+    import matplotlib.pyplot as plt
+    from keraspp.skeras import plot_loss, plot_acc
+    
+  - plot_loss, plot_acc는 앞 절에서 사용한 학습 결과를 그래프로 표시하는 함수들이다.
+
+### 6.2.5 완전 연결 계층 AE 동작 확인 ### 
+
+4️⃣ 완전 연결 계층 AE가 어떻게 동작했는지 확인해보자.
+
+AE는 입력 이미지를 더 적은 차원의 데이터로 부호화하고 다시 원래 차원의 이미지 데이터로 복호화한다. 
+
+이 과정에서 제대로된 특징점들을 찾는다면 테스트 이미지에 대해서도 부호화 및 복호화 이후 원 이미지와 거의 같은 결과를 만들 것이다.
+
+학습에 사용하지 않은 평가용 이미지들이 어떻게 부호화되고 다시 복호화되는지 시작적으로 확인해보자.
+
+- 이를 위해 AE모델 중 부호호와 복호화 부분을 다루는 각 모델의 인스턴스를 각각 생성한다.
+
+      encoder = autoencoder.Encoder()
+      decoder = autoencoder.Decoder()
+   
+   - encoder를 이용하면 입력 이미지가 어떻게 부호화되는지 알 수 있고 decoder를 이용하면 어떻게 복호화되는지 알 수 있다.
+
+- 평가용 이미지들을 넣어서 부호화 결과와 복호화 결과를 각각 생성한다.
+
+      encoded_imgs = encoder.predict(x_test)
+      decoded_imgs = decoder.predict(encoded_imgs)
+  
+  - 복호화 단계에서는 부호화한 데이터를 넣어 복호화 데이터를 생성했다. 따라서 평가용 이미지, 부호화 데이터, 복호화 데이터는 서로 연계된 것이다.
+
+- 평가 결과 중 화면에 표시할 이미지 수를 정한다(10개). 또한 subplot방식을 사용하여 10개를 하나의 그래프로 그리기 위해 그림 전체 크기를 (20,6)으로 지정한다.
+
+      n = 10
+      plt.figure(figsize = (20,6))
+      
+- 이제 평가용 이미지, 부호화 그래프, 복호화 이미지를 보여줄 차례이다. 세 그림을 세로로 보여주어 서로 연계되어 있음을 알리도록 구성한다.
+
+      for i in range(n):     
+        ax = plt.subplot(3,n,i+1) 
+
+- 첫 줄에 보여줄 그림은 입력 이미지이다. 입력 이미지는 평가용 이미지 이므로 학습에 사용하지 않았던 데이터이다. 화면은 흑백으로 보여준다.
+
+      plt.imshow(x_test[i].reshape(28,28))
+      plt.gray()
+      
+- 이미지 주변 축들은 보이지 않도록 한다.
+
+      ax.get_xaxis().set_visible(False)
+      ax.get_yaxis().set_visible(False)
+      
+- 다음 줄은 이미지가 압축된 형태를 보여준다. 합성곱 AE는 2차원 이미지를 1차원의 벡터로 압축하기 때문에 부호화된 정보는 1차원 그래프로 표시한다.
+
+      ax = plt.subplot(3, n, i+1+n)
+      plt.stem(encoded_imgs[i].reshape[-1])
+      
+- 마지막 줄은 복호화한 이미지를 보여준다.
+
+      ax = plt.subplot(3, n, i+1+n+n)
+      plt.imshow(decoded_imgs[i].reshape(28,28))
+      
+- 이제 그린 그래프를 실제로 화면에 보여준다.
+
+      plt.show()
+      
+![image](https://user-images.githubusercontent.com/66320010/123911603-f6091e00-d9b6-11eb-8908-8c287d8f7ba6.png)
+      
+  - 24 * 24(점 784개) 입력 이미지들이 원소 36개로 구성된 벡터로 변환된 뒤 24 * 24 이미지들로 복구된다.
+  
+  - 첫 줄에 있는 숫자 10개는 실제 필기체 이미지이고 이 이미지들은 실제 학습에는 사용하지 않는 평가용 이미지이다.
+  
+  - 학습은 학습 데이터만을 이용해서 진행했다. 그럼에도 제일 아래의 10개가 보여주듯이 필기체 숫자가 잘 복원되었다.      
+      
+### 6.2.6 학습 및 성능 평가 ###
+
+5️⃣ 학습과 성능 평가에 사용할 main()함수를 만든다.
+
+    def main():
+      x_nodes = 784
+      z_dim = 36
+      
+      autoencoder = AE(x_nodes,z_dim)
+      
+      history = autoencoder.fit(X_train,X_train, epochs = 10, batch_size = 256, shuffle =  True, validation_data = (X_test, X_test))
+      
+  - 입력 노드 수를 784로, 부호화 벡터 길이를 36으로 지정했다. 길이가 784인 원래 이미지의 데이터가 36으로 압축된다는 의미이다.
+  
+  - AE()로 모델링 인스턴스를 만들고 fit()함수로 10회 학습한다. 
+  
+  - 학습 중 검증 데이터로 X_test를 사용했다.   
+      
+- 이제 학습 결과를 그래프로 표시한다.     
+
+      plot_acc(history)
+      plt.show()
+      plot_loss(history)
+      plt.show()
+      
+   - 손실 값은 부호화 후 복호화 한 이미지와 원 이미지가 얼마나 유사한지를 나타내며 손실이 작을수록 부호화가 잘된 것이다.
+      
+## 6.3 합성곱 계층을 이용한 AE 구현 ##      
+      
+- 합성곱 계층을 이용한 방식은 이미지 처리에 효과적이다. 이미지 내에서 특징점 위치가 달라질 때도 효과적으로 대응할 수 있기 때문이다.
+
+- **완전 연결 계층을 이용한 방법은 이미지의 위치별로 각각 다르게 처리하기 때문에 비효율적이다.**
+
+- 따라서 합성곱 계층 방식은 완전 연결 계층 방식에 비해 사용되는 가중치 수가 줄어 학습 최적화에도 용이하다.
+
+✔ 합성곱 계층을 이용하여 AE를 다음과 같은 순서로 구현한다.
+
+1) 합성곱 AE 모델링
+2) 데이터 준비 및 학습 효과 분석
+3) 합성곱 AE 결과 시각화
+4) 합성곱 AE 학습 및 성능 평가     
+      
+### 6.3.1 합성곱 AE 모델링 ###      
+      
+1️⃣ 합성곱 계층을 이용하는 AE 신경망의 모델링을 알아보자. 우선 모델링에 필요한 서브패키지들을 불러온다.
+
+    from keras import models,layers
+    
+- 이번 예제에서는 부호화 단계와 복호화 단계가 각각 진행되기 때문에 여러 합성곱 계층이 사용된다. 따라서 구현 시 Conv2D 객체를 정의하는 유사코드를 여러 번 사용하기 때문에 이 객체를 추가하는 함수를 간략하게 만들어 이를 간략화하고 추후 가독성을 높인다.
+
+      def Conv2D(filters,kernel_size, padding='same', activation = 'relu'):
+        return layers.Conv2D(filters, kernel_size, padding= padding, activation = activation)
+      
+  - Conv2D() 함수를 이용하면 padding이나 activation에 대한 정의는 하지 않고 필터 수와 필터 크기만 입력하면 된다.
+
+- AE 객체를 구성한다. 초기화 함수인 __ init__()를 정의할 때 입력 데이터 모양을 변수로 받는다.
+
+      class AE(models.Model):
+        def __init__(self,org_shap):
+          # input
+          original = layers.Input(shape = org_shape)
+      
+  - MNIST의 경우, original로 정의된 입력 계층에 들어가는 데이터 모양은 채널 정보의 위치에 따라 (1,28,28) 또는 (28,28,1)이 된다.
+  
+💡 합성곱 AE는 총 7개의 합성곱 계층으로 구성된다. 첫 번째부터 세 번째까지는 **부호화**를 위한 합성곱 계층이고 네 번째부터 여섯 번째는 **복호화**를 하는 합성곱 계층이다. 일곱 번째는 **부호화 및 출력**을 하는 합성곱 계층이다. 2차원 이미지를 바로 출력하기 때문에 합성곱 계층을 이용하는 CNN 분류 경우와 달리 마지막 층도 완전 연결 계층으로 구성하지 않고 합성곱 계층으로 구성했다.
+
+- 첫 번째 합성곱 계층은 4개의 3 * 3 형태의 2차원 필터로 구성된다. 이 2차원 필터에 사용된 가중치 수는 4 * 3 * 3 = 36개 이다.
+
+       x = Conv2D(4,(3,3))(original)
+       x = layers.MaxPooling2D((2,2),padding='same')
+     
+   - 합성곱 계산이 끝나면 (2,2)형태의 맥스풀링이 적용된다. 평면에 사각으로 인접한 4개의 점 중 가장 큰 값을 대표값으로 찾아서 출력하는 방식이다.
+      ▶ 이 단계를 지나면 이미지의 크기는 1/4로 줄어들고 개수는 4배가 되어 14 * 14 크기의 이미지 4장이 출력된다.
+
+- 두 번째는 3 * 3 필터 8개를 적용한다. 맥스풀링은 첫 번째 단계와 동일하게 (2,2)비율로 적용된다.
+
+      x = Conv2D(8,(3,3))(x)
+      x = layers.MaxPooling2D((2,2), padding = 'same')(x)
+      
+- 세 번째 합성곱 계층은 부호화 결과를 출력한다.
+
+      z = layers.Conv2D(1,(7,7))(x)     
+      
+      
+✅ 이 과정까지 수행하면 부호화가 마무리되면서 28 * 28 크기었던 입력 이미지 한 장이 1/4 수준인 7 * 7 크기의 부호화 이미지 한 장으로 바뀌게 된다. 이제 복호화 과정을 통해 7 * 7로 줄어든 부호화 이미지가 어떻게 28 * 28 크기의 입력 이미지로 돌아가는지 살펴볼 것이다.
+      
+- 먼저 필터 수를 늘려 전체 이미지 공간을 늘린다. 같은 크기의 이미지가 16장이 되도록 한다. 그리고 나서 이미지의 샘플링 주파수를 좌우 두 배씩으로 올린다.      
+      
+       y = Conv2D(16,(3,3))(z)
+       y = layers.Upsampling2D((2,2))(y)
+      
+   - Upsamling2D((2,2))는 x축과 y축 모두에 대해 샘플링 비율을 2배 높인다. MaxPooling((2,2))에 대응하는 기능이다.
+   
+   - 복호화 과정에서는 특징점을 복원하는 역할을 한다. 이 단계를 지나면서 이미지는 다시 14 * 14로 정밀해지고 전체 이미지 개수는 16장이 된다.
+      
+- 이제 16장으로 늘어난 이미지들을 8장으로 줄이면서 화소를 좀 더 정교화한다. 그리고 그 결과에 샘플링 비율을 좌우로 2배씩 더올려 이미지 크기를 입력 이미지 크기와 같은 28 * 28로 만든다.
+
+      y = Conv2D(8,(3,3))(y)
+      y = layers.Upsampling2D((2,2))(y)
+      
+- 한 번 더 합성곱을 이미지 특징점들을 더 구체적으로 묘사한다. 그리고 좀 더 입력 이미지에 가까워지도록 특징점 간의 조합이 일어나게한다. 조합된 이미지 수가 4개가 되도록 필터 4개를 사용한다.
+
+      y = Conv2D(4,(3,3))(y)
+
+- 다음은 출력 단계이다. 2차원 이미지가 별도 변환 없이 신경망에서 바로 출력되도록 합성곱 계층을 이용하여 출력 데이터를 만든다. 출력 데이터를 만드는 과정에 (3,3)합성곱 계산을 추가하여 복원한다.
+
+      decoded = Conv2D(1,(3,3),activation = 'sigmoid')(y)
+      
+### 6.3.2 데이터 준비 및 학습 효과 분석 ###      
+      
+2️⃣ 데이터 준비와 학습 효과 분석은 앞 장에서 구현했던 코드를 재사용한다. 파이썬의 임포트 명령어로 이전 파일에 구현된 객체 또는 함수를 가져온다.     
+      
+    from ex4_1_cnn_mnist_cl import DATA
+    from keraspp.skeras import plot_loss, plot_acc
+    import matplotlib.pyplot as plt
+    
+ ### 6.3.3 합성곱 AE 결과 시각화 ###  
+      
+3️⃣ 합성곱 AE 시각화는 데이터 모양을 바꾸는 것 외에는 완전 연결 계층 AE 시각화와 유사하다.
+      
+- 입력 데이터와 AE 결과 데이터가 합성곱 AE에서는 채널을 포함하여 3차원이기 때문에 시각화를 위해 3차원으로 변경한다.
+
+      if backend.image_data_format() == 'channels_first' : 
+        N, n_ch, n_i, n_j = x_test.shape
+      
+      else : 
+        N, n_i, n_j, n_ch = x_test.shape
+        
+      x_test = x_test.reshape(N, n_i, n_j)   # 차원 변경
+      decoded_imgs = decoded_imgs.reshape(decoded_imgs.shape[0], n_i, n_j)
+      
+      ax = plt.subplot(2, n, i+1)
+      plt.imshow(x_test[i])
+      
+      ax.get_xaxis().set_visible(False)
+      ax.get_yaxis().set_visible(False)
+      
+      ax = plt.subplot(2, n, i+1+n)
+      plt.imshow(decoded_imgs[i])
+      
+      ax.get_xaxis().set_visible(False)
+      ax.get_yaxis().set_visible(False)
+      
+### 6.3.4 합성곱 AE 학습 및 성능 평가 ###
+
+4️⃣ 합성곱 AE 모델링, 데이터 준비, 학습, 결과 시각화 코드가 준비되었으니 이제 실제 학습과 성능 평가를 수행할 것이다.
+
+- 전체를 다루는 메인함수의 입력은 epoch와 batch_size이다. 기본값으로 각각 20과 128을 설정한다. 그리고 data와 autoencoder의 인스턴스를 만든다.
+      
+      def main(epochs = 20, batch_size = 128):
+        data = DATA()
+        autoencoder = AE(data.input_shape)
+        
+    - AE()는 입력 이미지의 모양을 참조하여 인스턴스가 만들어지도록 입력 이미지의 모양정보에 해당하는 data.input_shape을 AE()의 입력 아규먼트로 제공한다.
+
+- 합성곱 AE를 학습한다.
+
+      history = autoencoder.fit(data.x_train, data.x_train_, epochs = epochs, batch_size = batch_size, shuffle = True, validation_split = 0.2)
+   
+   - 학습에 사용할 배열이 DATA클래스의 data인스턴스에 멤버 변수로 포함되어있다. 
+   
+   - AE는 입력과 출력이 동일하므로 두 곳에 모두 data.x_train을 사용하도록 했다.
+        
+- 학습이 어떻게 진행되었는지 그래프로 확인한다.
+
+      plot_acc(history)
+      plt.show()
+      plot.loss(history)
+      plt.show()
+  
+  - 분류 결과가 아닌데도 정확도 측정이 가능했던 것은 컴파일 시 **교차 엔트로피를 손실함수**로 지정했기 때문이다. 그렇지 않고 **mse**를 지정하면 정확도를 표시할 수 없고 손실로 학습 진행의 추이를 관찰해야한다.
+
+- 정확도와 손실 그래프를 확인한 결과 과적합 없이 제대로 학습이 진행됐다면 AE의 결과를 시각화한다.
+
+      show_ae(autoencoder,data)
+      plt.show()
+      
+시각화를 수행한 결과는 다음 그림과 같다.
+
+![image](https://user-images.githubusercontent.com/66320010/123925017-7767ad00-d9c5-11eb-8fa5-a02b9a5dc635.png)
+
+  - 윗 줄은 평가에 사용한 원래 이미지이고 아랫줄은 AE 출력 결과 이미지이다.
+
+  - 완전 연결 계층 시각화 결과와 비교해보면 결과 이미지가 더 선명해졌음을 알 수 있다. 
+
+  - CNN은 부분적인 특징점을 잘 잡기 때문에 특히 이미지의 복잡도가 높은 경우 완전 연결 계층으로 처리한 결과와 대비하여 더 우수한 성능을 보인다.
+      
+      
