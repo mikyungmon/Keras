@@ -162,13 +162,188 @@ GAN을 제안한 이안 굿펠로우의 논문에 제시된 예제를 활용하�
 
 ### 7.2.1 패키지 임포트 ###
 
+1️⃣ 확률분포 생성 GAN을 구현하는 데 필요한 패키지 임포트 단계와 코드 수행 단계를 먼저 살펴본다.
 
+   ✔ 패키지 임포트
+   
+   ✔ 머신 수행하기
 
+- GAN의 구현에 필요한 행렬 계산을 다루는 넘파이와 그래픽을 담당하는 맷플롯립 라이브러리를 임포트 한다.
 
+      import numpy as np
+      import matplotlib.pyplot as plt
+    
+- 다음은 인공지능 구현에 필요한 케라스 서브패키지들을 불러온다.
 
+      from keras import models
+      from keras.layers import Dense, Conv1D, Reshape, Flatten, Lambda
+    
+- 최적화에 사용되는 클래스와 백엔드 패키지도 임포트한다.
 
+      from keras.optimizers import Adam
+      from keras import backend as K
+      
+   - Adam 클래스를 임포트한 이유는 최적화에 사용하는 파라미터를 코드에서 변경하기 위해서이다. 케라스는 컴파일 단계에서 optimizer를 문자열로 지정하면 파라미터가 기본값으로 최적화된다.
+    
+     ▶ 따라서 최적화 파라미터값을 변경하길 원한다면 해당 최적화 클래스를 임포트 하면 된다.
 
+### 7.2.2 코드 수행과 결과 보기 ###
 
+2️⃣ GAN을 동작시키는 머신의 인스턴스를 만든다.
 
+    machine = Machine(n_batch = 1, ni_D = 100)   # 매 에포크마다 길이가 100인 벡터 하나를 출력하도록 설정
 
+- 이제 만들어진 머신을 수행한다.
 
+      machine.run(n_repeat = 200, n_show = 200, n_test = 100)
+      
+    - n_repeat : 전체를 반복하는 횟수
+    
+    - n_show : 결과를 표시할 총 에포크 수
+    
+    - n_test : 내부 성능 평가 시 사용할 샘플 수 
+
+- main() 함수가 실행되도록 한다.
+
+      if __name__ == '__main__' :
+         main()
+
+    - 이렇게 하면 코드를 임포트할 때는 main()함수를 호출하지 않지만 명령행 코드를 수행하면 main()이 호출된다.
+
+     📍 조건문으로 __ name__을 검사하면 **임포트 시에는 동작하지 않고 명령행으로 수행할 때 동작하는 코드 블럭을 만들 수 있다.** 이 코드블럭은 $python.code.py와 같이 명령할 때만 동작한다. 이는 __ name__이라는 시스템 변수가 '__ main__'으로 설정되어 있는지를 보고 정한다. 시스템 변수 __ name__은 파이썬 코드가 임포트를 통해서 실행되었는지 아닌면 명령행으로 실행되었는지에 따라 값이 다르게 설정된다. 명령행으로 실행하면 '__ main__'으로 설정된다.
+
+위의 machine.run()을 수행하면 진행 상황이 200에포크마다 히스토그램 그래프로 출력된다.
+
+다음 그림에서 스테이지가 10일 때와 199일 때 그래프를 확인할 수 있다.
+
+이 확률 분포 비교 그래프를 보면 에포크가 늘어남에 따라 생성된 허구 데이터가 입력한 무작위 잡음 벡터와 갈수록 달라지는 걸 알 수 있다.
+
+그러다가 stage 199에 이르면 허구 데이터가 실제 데이터의 분포와 꽤 유사해진다.
+
+### 7.2.3 데이터 생성 클래스 ###
+
+3️⃣ GAN에 적용할 데이터 관리 클래스를 다음과 같이 만든다.
+
+    class Data : 
+      def __init__(self, mu, sigma, ni_D):
+        self.real_sample = lambda n_batch : np.random.normal(mu,sigma,(n_batch,ni_D)   # 흉내 내고자 하는 실제 데이터
+        self.in_sample = lambda n_batch : np.random.rand(n_batch,ni_D)   # 무작위 잡음 데이터
+  
+   - GAN에는 두 가지 데이터가 필요하다. 
+
+   - 첫 번째는 GAN으로 흉내 내고자 하는 실제 데이터, 두 번째는 실제 데이터와 통계적 특성이 다른 무작위 잡음 데이터이다.
+
+   - 이 둘을 만들려면 확률변수를 생성하는 함수가 필요하다. 
+
+      ➡ 정규분포 확률변수는 numpy 아래에 random.normal()함수로 생성한다. 이 함수를 활용해서 확률변수를 생성하는 함수를 lambda로 만들어 반환한다.
+      
+      ➡ 아규먼트를 위한 확률은 random.rand()을 사용해 연속균등분포로 지정한다.
+
+### 7.2.4 머신 구현하기 ###
+
+4️⃣ **머신**은 데이터와 모델로 GAN을 학습하고 성능을 평가하는 인공신경망 전체를 총괄하는 객체이다. 여기서는 Machine 클래스로 머신 객체를 구현한다. 
+
+- 머신 내부를 구현한다. 멤버 함수별로 구분하여 다음과 같은 순서로 살펴본다.
+
+  1) 클래스 초기화 함수 : __ init__()
+  2) 실행 멤버 함수 : run()
+  3) 에포크 단위 실행 멤버 함수 : run_epochs()
+  4) 학습 진행 멤버 함수 : train()
+  5) 매순간 학습 진행 멤버 함수 : train_epoch()
+  6) 판별망 학습 멤버 함수 : train_D()
+  7) 학습용 생성망 학습 멤버 함수 : train_GD()
+  8) 성능 평가 및 그래프 그리기 멤버 함수 : test_and_show()
+  9) 상황 출력 정적 함수 : print_stat()
+
+- 머신 클래스 초기화 함수를 만든다.
+
+      class Machine : 
+        def __init__(self, n_batch = 10, ni_D = 100) :
+          data_mean = 4
+          data_stddev = 1.25
+          self.data = Data(data_mean, data_stddev, ni_D)
+
+  - ni_D : 판별망이 한꺼번에 받아들일 확률변수 수
+
+- GAN 객체로 GAN모델의 인스턴스를 만든다. GAN을 구성하는 2가지 신경망인 판별망과 생성망 은닉 계층의 노드 수를 모두 50으로 설정한다.
+
+      self.gan = GAN(ni_D = ni_D, nh_D = 50, nh_G = 50)
+
+- 다음으로 배치 단위를 설정한다. 또한 생성망과 판별망의 배치별 최적화 횟수도 정한다.
+
+      self.n_batch = n_batch
+      self.n_iter_D = 1   # 배치별 최적화 횟수
+      self.n_iter_G = 1
+
+  - 판별망(D)와 생성망(G)의 각 배치마다 에포크를 다르게 가져갈 수도 있다. 
+  
+  - 기본은 한 번 배치가 수행될 때 판별망이 한 번 학습된 후 생성망이 한 번 학습되는 것이다.
+  
+  - GAN을 처음 제안한 논문에는 배치별로 판별망을 생성망보다 더 많이 학습하면 도움이 된다고 언급되어 있다.
+  
+  - 몇 번을 더 학습하는지는 하이퍼파라미터로 설정할 수 있으며 논문에서는 1회씩을 사용했다.
+
+- 머신 클래스의 실행을 담당하는 멤버 함수인 run()을 만든다. 이 함수는 n_show번 학습이 진행될 때마다 그 결과를 그래프로 표시한다.
+
+      def run(self, n_repeat = 30000 // 200, n_show = 200, n_test = 100):
+        for ii in range(n_repeat):
+          print('Stage', ii, '(Epoch: {})'.format(ii * n_show))
+          self.run_epochs(n_show,n_test)
+          plt.show()
+
+  - run_epochs()함수는 호출될 때마다 학습을 n_show번 수행한다.
+  
+- 에포크 단위로 실행을 담당하는 멤버 함수인 run_epochs()를 구현한다. 이 함수는 첫 번째 입력 아규먼트인 epochs만큼 학습을 진행한다.
+
+      def run_epochs(self,epochs,n_test):
+        self.train(epochs)
+        self.test_and_show(n_test)
+     
+    - epochs만큼 학습을 진행하는 함수를 호출한 후 학습된 신경망에 내부 성능 평가 데이터를 넣어 그 성능을 결과 그래프로 보여주는 함수를 호출한다.
+
+- GAN의 학습을 진행하는 멤버 함수를 만든다.
+
+      def train(self,epochs):
+        for epoch in range(epochs):
+          self.train_each()   # 매 에포크마다 멤버 함수인 train_each()를 호출해 학습
+
+    - GAN의 학습은 판별망 D와 학습용 생성망 GD의 반복 학습으로 진행된다.
+
+- D와 G의 학습이 매번 각 1회 이상 수행될 수 있게 했다. 이번 예제에서는 단순화를 위해 각 1회씩 학습한다.
+
+      def train_each(self):
+        for it in rnage(self.n_iter_D):   # 판별망은 n_iter_D만큼 학습
+          self.train_D()
+        for it in range(self.n_iter_G):   # 학습용 생성망도 n_iter_GD만큼 반복 학습
+          self.train_GD()
+
+- 판별망을 학습시키는 멤버 함수를 살펴보자.
+
+      def train_D(self):
+        gan = self.gan
+        n_batch = self.n_batch
+        data = self.data
+        
+- data.real_sample()함수로 실제 데이터에서 n_batch 만큼 샘플을 가져온다. 실제 데이터는 정규분포를 따르는 샘플이다.        
+        
+      Real = data.real_sample(n_batch)  # (n_batch,ni_D)     
+        
+- 그리고 임의의 분포를 가지는 입력 샘플을 data.in_sample()함수로 데이터 샘플 수와 같은 수만큼 만든다.
+
+      Z = data.in_sample(n_batch)    # (n_batch,ni_D)       
+        
+- 다음은 입력 샘플을 생성기에 통과시켜 생성망의 출력으로 바꾼다.
+
+      Gen = gan.G.predict(Z)  # (n_batch,ni_D)       
+        
+- 판별망은 **학습용 생성망**을 학습할 때는 **학습이 되지 않도록 막아두기 때문에 gan.D.trainable을 True로 바꾸고 학습을 진행해야 한다.**        
+        
+      gan.D.trainable = True  
+        
+- 이제 판별망을 학습한다.
+
+      gan.D_train_on_batch(Real,Gen) 
+      
+- 다음은 머신 클래스에 들어갈 학습용 생성망을 학습하는 멤버 함수이다.      
+        
+        
