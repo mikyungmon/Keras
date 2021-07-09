@@ -346,4 +346,239 @@ GAN을 제안한 이안 굿펠로우의 논문에 제시된 예제를 활용하�
       
 - 다음은 머신 클래스에 들어갈 학습용 생성망을 학습하는 멤버 함수이다.      
         
+      def train_GD(self):
+        gan = self.gan
+        n_batch = self.n_batch
+        data = self.data
+        Z = data.in_sample(n_batch)
+        
+        gan.D.trainable = False
+        gan.GD_train_on_batch(Z)
+        
+    - 입력이 생성망에 들어가면 모든 판별망이 실제 샘플로 착각하도록 GD_train_on_batch()를 이용해 학습한다.
+
+- 학습용 생성망을 학습할 때는 실제 데이터를 다룰 필요가 없기 때문에 판별망 학습보다는 코드가 간단하다.
+
+- 현재까지 학습된 GAN 신경망의 성능을 평가하고 확률 예측 결과를 그래프로 그리는 멤버 함수를 만들 것이다. 총 n_test만큼 데이터를 만들어서 test()멤버 함수에 입력한다.
+
+      def test_and_show(self,n_test):
+        data = self.data
+        Gen, Z = self.test(n_test)
+        Real = data.real_sample(n_test)  # 실제 이미지를 n_test만큼 가져와서 Real에 저장
+        self.show_hist(Real,Gen,Z)
+        Machine.print_stat(Real,Gen)
+
+- 학습 진행 경과에 대한 그래프를 그리는 멤버 함수를 구현한다.
+
+      def show_hist(self,Real,Gen,Z):
+        plt.hist(Real.reshape(-1), histtype = 'step', label='Real')
+        plt.hist(Gen.reshape(-1), histtype = 'step', label = 'Generated')
+        plt.hist(Z.reshape(-1), histtype = 'step', label = 'Input')
+        plt.legend(loc=0)
+    
+   - 내부 평가에 사용된 무작위 잡음 데이터(Z)와 생성 데이터(Gen)의 통계적 특성을 같은 수의 실제 데이터(Real)의 통계적 특성과 비교한다.
+   
+   - Real,Gen,Z의 통계적 특성을 plt.hist()를 사용해 표시한다.
+
+- 생성망이 얼마나 실제 데이터의 확률분포를 따르는 데이터를 만드는지 확인하는 정적 멤버 함수를 만들어 본다.
+
+      @stticmethod
+        def print_stat(Real,Gen):
+          def stat(d):
+            return (np.mean(d),np.std(d))
+          print('Mean and Std of Real :', stat(Real))
+          print('Mean and Std of Gen :', stat(Gen))
+          
+### 7.2.5 GAN 모델링 ###          
+          
+5️⃣ 다음과 같은 순서로 GAN을 모델링한다.
+
+  1) 클래스 초기화 함수 : __ init__()
+  2) 판별망 구현 멤버 함수 : gen_D()
+  3) 생성망 구현 멤버 함수 : gen_G()
+  4) 학습용 생성망 구현 멤버 함수 : make_GD()
+  5) 판별망 학습 멤버 함수 : D_train_on_batch()
+  6) 학습용 생성망 학습 멤버 함수 : GD_train_on_batch()
+
+- GAN의 판별망과 생성망을 모델링하는 클래스의 초기화 함수를 만들어보자.
+
+      class GAN :
+        def __init__(self,ni_D,nh_D, nh_G):
+          self.ni_D = ni_D    # 판별망 입력 길이
+          self.nh_D = nh_D    # 판별망의 두 은닉 계층의 노드 수 
+          self.nh_G = nh_G    # 생성망의 두 은닉 계층의 노드 수 
+          
+          self.D = self.gen_D()
+          self.G = self.gen_G()
+          self.GD = self.make_GD()
+          
+          
+- 판별망을 구현하는 멤버 함수를 만든다. GAN모델에서 구현할 판별망은 다음과 같다.
+
+![image](https://user-images.githubusercontent.com/66320010/125069584-e1810000-e0f1-11eb-848d-8cbfa5b9fbd0.png)
+         
+판별망은 입력과 출력 계층을 포함하여 여섯 계층으로 구성된다. 
+
+입력 계층 다음은 람다 계층이고 그 다음은 두 은닉 계층이고 마지막은 출력 계층이다.
+
+두 은닉 계층과 출력 계층은 모두 완전 연결 계층으로 구성된다.
+
+- 위 그림에 나온 판별망을 케라스의 연쇄 방식으로 구현한다.
+
+      def gen_D(self):
+        ni_D = self.ni_D
+        nh_D = self.nh_D
+        D = models.Sequential()
+        D.add(Lambda(add_decorate,output_shape = add_decorate_shape, input_shape(ni_D,)))
+        D.add(Dense(nh_D, activation='relu'))
+        D.add(Dense(nh_D, activation='relu'))
+        D.add(Dense(1, activation='sigmoid'))
+        
+        model_compile(D)
+        return D
+        
+    - Lambda클래스는 계층의 동작을 처리하는 함수인 add_decorate()와 계층을 통과한 출력 텐서의 모양인 output_shape을 입력받는다.
+          
+- 람다 계층의 처리 함수인 add_decorate()를 만든다.
+
+      def add_decorate(x):
+        m = K.mean(x,axis = -1,keepdims = True)
+        d = K.square(x - m)
+        return K.concatenate([x,d], axis = -1)
+        
+   - 이 함수는 입력 벡터에 새로운 벡터를 추가한다. 새로운 벡터는 입력 벡터의 각 요소에서 벡터 평균을 뺀 값을 자승한 값을 가진다(즉, (x-m)^2한 값).
+   
+   - 벡터의 추가는 K.concatenate()엔진 함수로 구현한다. 입력 벡터와 추가 벡터를 연속으로 붙여서 새로운 벡터를 만들어 준다. 
+   
+   - 붙이는 위치를 지정하는 아규먼트 axis를 -1로 설정했다. 이는 벡터의 **가장 마지막 차원**을 서로 붙이라는 의미이다.
+
+- 출력 데이터의 모양을 지정하는 add_decorate_shape(input_shape)을 만든다. 
+
+      def add_decorate_shape(input_shape):
+        shape = list(input_shape)
+        assert len(shape) == 2
+        shape[1] *= 2
+        return tuple(shape)
+        
+  - 컴파일 단계가 끝나고 학습 단계에서 처리 함수가 계산되면 출력 벡터의 크기가 반환되지만 케라스에서는 이렇게 add_decorate_shape()을 이용해 그 크기를 컴파일 이전에 명시해주어야 한다.
+  
+  - 왜냐하면 케라스는 컴파일할 때 신경망의 구조를 설정하는데 그러려면 컴파일 시점에서 각 계층의 입력의 출력 크기를 알 수 있어야 하기 때문이다.        
+        
+- 정의한 신경망들을 컴파일 하는 model_compile()를 구현한다.
+
+      lr = 2e-4
+      adam = Adam(lr = lr, beta_1 = 0.9, beta_2 = 0.999)   # beta 최적화 값을 (0.9,0.999)로 설정
+      def model_compile(model):
+        return model.compile(loss= 'binary_crossentropy', optimizer = adam, metrics = ['accuracy'])
+        
+- 생성망을 구현하는 멤버 함수를 만든다. 생성망 구조는 다음 그림과 같다.
+
+![image](https://user-images.githubusercontent.com/66320010/125072490-a41e7180-e0f5-11eb-9038-44e24f8a3e28.png)
+
+생성망 모델링도 판별망처럼 연쇄 방식으로 구성한다.
+        
+    def gen_G(self):
+      ni_D = self.ni_D
+      nh_G = self.nh_D
+      
+      G = models.Sequential() 
+      G.add(Reshape((ni_D,1), input_shape=(ni_D,))) 
+      G.add(Conv1D(nh_G,1,activation='relu'))   # nh_G은 변환에 사용할 필터 수 , 1은 커널 크기(입력 벡터 간의 상관도를 높여주는 역할)
+      G.add(Conv1D(nh_G,1,activation='sigmoid'))
+      G.add(Conv1D(1,1))
+      G.add(Flatten())  # 생성망 출력을 1차원으로 만듦
+      
+      model_compile(G)
+        return G
+      
+  - 생성망에서 생성된 확률변수가 주어진 확률변수와 같은 확률분포를 가지는지 판별망으로 판단하려면 확률변수 여럿이 필요하다. 이를 위해서 생성망을 매번 ni_D만큼의 확률변수를 생성한다.
+  
+  - 각 확률변수를 서로 독립적으로 생성하기 위해서 각 층은 1차원 합성곱을 사용하여 구성한다. 생성망에 들어가는 입력 데이터 모양은 (Batch, input_dim)이다.
+  
+  - 1차원 합성곱 계층에 벡터 입력을 넣으려면 (Batch,steps,input_dim)으로 데이터 차원을 확대해야한다. Reshape()을 사용하여 input_dim을 steps축 기준으로 전환시키면 된다.
+
+- 학습용 생성망을 구현하는 멤버 함수를 만든다. 학습용 생성망은 생성망을 학습시키는 가상 신경망이다. 이는 생성망의 상단에 판별망을 달아주어 구현한다. 이 때 판별망의 가중치는 학습 중에 변하지 않도록 해야한다.
+
+      def make_GD(self):
+        G, D = self.G, self.D
+        GD = models.Sequential()
+        GD.add(G)
+        GD.add(D)
+        
+        D.trainable = False   # D가 학습되지 않게 trainable을 끔
+        model_compile(GD)
+        D.trainable = True
+        return GD
+
+- 판별망의 학습을 진행하는 함수를 만든다. 새로운 함수가 필요한 이유는 GAN이 비지도형 신경망이라서 일반적인 지도형 학습을 사용할 수 없기 때문이다.
+
+      def D_train_on_batch(self,Real,Gen):
+        D = self.D
+        X = np.concatenate([Real,Gen],axis = 0)
+        y = np.array([1] * Real.shape[0] + [0] *Gen.shape[0])   # 허구를 0, 실제를 1로 판단, 한꺼번에 학습하고자 실제 신호 벡터와 생성망이 만든 허구 신호를 연결
+        D.train_on_batch(X,y)
+  
+  - train_on_batch()는 앞서 사용했던 fit()과는 처리하는 데이터양이 다르다. fit()은 전체 데이터를 받아 배치처리로 반복 학습하는데, train_on_batch()는 배치 크기의 데이터만 받고 1회만 학습한다.
+      
+- 학습용 생성망을 학습시키는 멤버 함수를 만든다.      
+      
+      def GD_train_on_batch(self,Z):
+        GD = self.GD
+        y = np.array([1]*Z.shape[0])
+        GD.train_on_batch(Z,y)
+        
+   - 학습용 생성망도 판별망의 학습과 마찬가지로 어떤 값을 목표로 할지 지정했다.
+   
+   - **생성망에서 출력되는 허구값을 판별망에서 실제값으로 판별하도록 학습해야하기 때문에 목표 출력값을 모두 1로 설정했다.**
+   
+   - 그리고 생성망에 들어가는 입력값을 입력으로 하고 모두를 1로 설정한 벡터를 출력으로 하여 train_on_batch()를 이용해 학습하도록 했다.
+      
+      
+## 7.3 필기체를 생성하는 합성곱 계층 GAN 구현 ##      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+        
+        
+        
         
