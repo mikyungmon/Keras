@@ -536,42 +536,156 @@ GAN을 제안한 이안 굿펠로우의 논문에 제시된 예제를 활용하�
       
 ## 7.3 필기체를 생성하는 합성곱 계층 GAN 구현 ##      
       
+GAN을 이용해 필기체 숫자를 생성하는 인공신경망을 만들어보자.
+
+GAN은 입력한 필기체를 보고 배워 새로운 유사 필기체를 만든다. GAN에 들어있는 두 인공신경망은 **합성곱 계층**을 이용해 만든다.
+
+GAN을 이용한 필기체 숫자 생성은 학습에 오랜 시간이 걸리고 파라미터를 이용한 조절이 중요하기 때문에 명령행에서 아규먼트를 입력받는 방식으로 코드를 구현한다.
       
+다음과 같은 순서로 진행한다.
+
+1) 공통 패키지 불러오기
+2) 합성곱 계층 GAN 수행하기
+3) 합성곱 계층 GAN 모델링
+4) 합성곱 계층 GAN 학습하기
+
+### 7.3.1 공통 패키지 불러오기 ###  
       
+1️⃣ 공통 패키지 MNIST 데이터셋을 불러오는 케라스 서브패키지를 임포트한다.
+
+    from keras.datasets import mnist
+    
+- 이미지 처리용 툴을 다루는 PIL의 서브패키지를 임포트한다.
+
+      from PIL import Image
+    
+- 파이썬 기본 패키지들을 임포트한다.
+
+      import numpy as np   # 행렬
+      import math   # 수학
+      import os   # 파일
       
+- 케라스의 백엔드 패키지를 불러온다.
+
+      import keras.backend as K
+      K.set_image_data_format('channels_first')    # 이미지 데이터의 채널이 들어 있는 차원이 1번째가 되도록 설정
+      print(K.set_image_data_format)
       
+- 끝으로 tensorflow 패키지를 부른다.
+
+      import tensorflow as tf   
+     
+   - 케라스는 엔진의 함수를 직접 불러서 사용하는 기능도 제공하기 때문에 tensorflow 패키지도 호출했다.
       
+- 케라스는 다양한 인공신경망 관련 함수를 제공한다. 그러나 가끔은 사용자가 직접 만드는 경우도 있다. 이번 예의 생성망처럼 신경망의 출력이 스칼라나 벡터가 아니라 다차원일 경우에는 해당 차원에 맞는 손실함수가 필요하다. 4차원 데이터를 이용하는 손실 함수를 케라스 백엔드와 텐서플로로 구현한다.
+
+      def mse_4d(y_true,y_pred):
+        return K.mean(K.square(y_pred - y_true),  axis=(1,2,3))   # 평균자승오류 구함
+        
+      def mse_4d_tf(y_true,y_pred):
+        return tf.reduce_mean(tf.square(y_pred - y_true), axis= (1,2,3))
       
+   - 4차원 데이터이므로 배치 데이터를 나타내는 0축(axis)을 제외하고는 평균 계산이 다른 모든 축에 대해 이루어지도록 했다.
+   
+   - 케라스에서 제공하는 최소자승오류 계산 함수는 axis = -1, 즉 한 축의 평균을 구한다.   
+   
+   - 케라스 백엔드가 많은 함수를 제공하기 때문에 호환성을 높이는 차원에서 가능하면 케라스 백엔드로 추가 함수를 구성해주는 것이 좋지만 엔진 고유의 기능을 사용하고자 할 때는 직접 구성해도 좋다.
       
+### 7.3.2 합성곱 계층 GAN 수행 ###      
       
+2️⃣ 각 단계별 구현에 앞서 합성곱 계층 GAN의 수행 방법과 결과를 살펴보자.      
       
+- 아규먼트를 효율적으로 입력받을 수 있도록 argparse 패키지를 임포트한다. 그리고 main()함수를 정의하여 입력 파라미터를 처리한다.
+
+      import argparse 
       
+      def main():
+        parser = argparse.ArgumentParser()   # 인자값 받을 수 있는 인스턴스 생성
+        
+        # 입력받을 인자값 등록
+        parser.add_argument('--batch_size', type = int, default = 16, help = 'Batch size for the networks')  
+        parser.add_argument('--epochs', type = int, defalut = 100, help = 'Epochs for the networks')
+        parser.add_argument('--output_fold', type = str, defalut = 'GAN_OUT', help = 'Output fold to save the results')   # 결과 저장 폴더
+        parser.add_argument('--input-dim', type = int, defalut = 10, help = 'Input dimension for the generator')   # 무작위 벡터 길이
+        parser.add_argument('n_train', type = int, defalut = 32, help = 'The  number of training data')   # 사용할 학습 데이터 수 
+        
+- 명령행으로 입력한 파라미터를 처리한 후 이 파라미터들로 학습을 수행한다.
+
+      args = parser.parse_args()    # 입력받은 인자들을 args에 저장
+      train(args)
       
+### 7.3.3 합성곱 계층 GAN 모델링 ###        
       
+3️⃣ GAN에 포함된 2가지 신경망(생성망과 판별망)을 모델링해보자.
+
+- 우선 모델링에 필요한 케라스 서브패키지들을 불러온다.
+
+      from keras import layers,models,optimizers
       
+- 다음은 Sequential를 상속한 클래스를 만든다.
+
+      class GAN(models.Sequential):
       
+- 이제부터 클래스에서 제공하는 각 멤버 함수를 살펴보자. 클래스 초기화 함수를 만든다.
+
+      def __init__(self, input_dim = 64):
+        super.__init__()
+        self.input_dim = input_dim
+        
+    - 입력 벡터의 크기를 파라미터로 받는다. 
+
+- 생성망과 판별망을 모델링 하는 단계이다.
+
+      self.generator = self.GENERATOR()
+      self.discriminator = self.DISCRIMINATOR()
       
+    - 두 신경망을 모델링하는 멤버 함수를 호출하여 모델을 만든다.
+
+- **생성망은 판별망의 결과를 활용하여 학습한다**. 따라서 학습을 위한 생성망은 생성망과 판별망이 결합된 형태이다. 이렇게 결합된 생성망을 학습용 생성망이라고 부른다. 단, 결합 시 판별망 쪽은 학습이 진행되지 않도록 만든다. 학습용 생성망을 학습할 때는 이미 학습된 판별망을 사용하기 때문이다.    
       
+      self.add(self.generator)
+      self.discriminator.trainable = False
+      self.add(self.discriminator)
       
+지금까지 판별망 모델 1개, 순수 생성망 모델 1개, 판별망이 붙어 있는 생성망 모델 1개를 구현했다.
+
+- 모델들을 사용하려면 컴파일 과정이 필요하다.
+
+      self.compile_all()
       
+- 전체 신경망을 컴파일하는 함수를 만든다.
+
+      def compile_all(self):
+        # 최적화 방법 정의
+        d_optim = optimizers.SGD(lr = 0.0005, momentum = 0.9, nesterov = True)   # 최적화 인스턴스
+        g_optim = optimizers.SGD(lr = 0.0005, momentum = 0.9, nesterov = True)    
+        
+        self.generator.compile(loss=mse_4d, optimizer = "SGD")  # 학습용 생성망 컴파일
+        self.compile(loss='binary_crossentropy', optimizer= g_optim)    # 순수 생성망을 최적화 인스턴스를 사용해 최적화 
+        
+        # 판별망 컴파일
+        self. discriminator.trainable = True
+        self.discriminator.compile(loss= 'binary_crossentropy', optimizer = d_optim)
+   
+   - 모델을 정의했다고 모델이 생성되는 것은 아니다. 모델 생성은 컴파일 단계에서 이루어지기 때문에 케라스 인공신경망에 있어서 컴파일 단계는 필수이다.
+   
+   - 학습을 하지 않고 기존의 가중치를 사용한다고 해도 컴파일 단계를 반드시 수행해야 한다.
+   
+   - 모델들을 컴파일 하기에 앞서 컴파일에서 필요한 최적화 방법을 정의한다.
+   
+   - SGD 최적화 함수의 파라미터를 설정하여 판별망과 생성망의 학습에 사용될 최적화 인스턴스를 가져온다.
+   
+   - 이제 순수 생성망 뒤에 판별망을 붙인 학습용 생성망을 컴파일 한다.
+   
+   - 순수 생성망은 학습 시 최적화 인스턴스인 g_optim을 사용해 최적화한다.
+   
+   - 판별망은 학습용 생성망이 학습될 때는 자신은 학습되지 않고 고정되어 있으면서 생성망의 학습을 돕는다. 그래서 학습용 생성망이 학습되는 동안 판별망이 학습되지 않도록 막았다.
+   
+   - 이번에는 판별망을 학습하므로 판별망의 가중치를 최적화 해야한다. 그래서 컴파일 단계에서 학습 옵션(trainable)을 다시 켜주었다.
+   
+✔ 지금까지 3가지 신경망을 컴파일하는 코드를 만들었다. 주의할 점은 학습용 생성망은 순수 생성망과 판별망이 결합된 형태로 새로 추가된 신경망 구조와 가중치가 없다는 점이다. 따라서 실제 학습은 판별망과 학습용 생성망에 대해서만 진행된다. 
       
-      
-      
-      
-      
-      
-      
-      
-      
-      
-      
-      
-      
-      
-      
-      
-      
-      
+- 생성망을 정의하는 함수를 만들어보자.      
       
       
       
