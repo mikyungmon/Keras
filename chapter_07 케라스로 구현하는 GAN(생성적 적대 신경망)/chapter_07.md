@@ -692,6 +692,7 @@ GAN을 이용한 필기체 숫자 생성은 학습에 오랜 시간이 걸리고
 
         model = models.Sequential()
         model.add(layers.Dense(1024,activation='tanh', input_dim = input_dim))
+        model.add(layers.Dense(128 * 7 * 7, activation='tanh'))
         model.add(layers.BatchNormalization())
         model.add(layers.Reshape((128,7,7), input_shape = (128 * 7 * 7,)))
         model.add(layers.UpSampling2D(size=(2,2)))
