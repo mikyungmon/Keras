@@ -817,9 +817,78 @@ GAN은 무작위 신호를 입력으로 받아들인다. 무작위 신호를 이
       
 - 학습 수행에 필요한 파라미터들을 로컬 변수에 저장한다.      
       
+      def train(args):
+        BATCH_SIZE = args.batch_size
+        epochs = args.epochs
+        output_fold = args.output_fold    # 학습과정에서 생성된 이미지 중 일부를 간헐적으로 출력하는 폴더의 이름
+        input_dim = args.input_dim   # 무작위 벡터의 길이
+        
+        os.makedirs(output_fold, exist_ok = True)
+        print('Output_fold is', output_fold)
       
+- MNIST 데이터를 불러오고 전처리를 한다.
+
+      (X_train,y_train), ( _ , _ ) = mnist.load_data()
+      X_train = (X_train.astype(np.float32) - 127.5) / 127.5
+      X_train = X_train.reshape((X_train.shape[0],1) + X_train.reshape[1:])   # 채널 차원 추가
+        
+ - MNIST 데이터셋을 불러오고 0에서 255까지 정수로 된 이미지 각 필셀이 -1부터 1사이의 실수가 되도록 했다.
+ 
+ - 합성곱 계층의 처리를 위해 흑백 이미지이지만 채널 차원을 하나 추가 했다       
+        
+- GAN 모델의 인스턴스를 만든다.
+
+      gan = GAN(input_dim)
+
+- 학습의 진행을 위해서 에포크 단위로 1차 순환문을 구성한다.
+
+      d_loss_ll = []
+      g_loss_ll = []
+      for epoch in range(epochs):
+        print("Epoch is", epoch)
+        print("Number of batches", int(X_train.shape[0] / BATCH_SIZE))
+
+        d_loss_l = []
+        g_loss_l = []
+
+- 케라스에서 model.fit()함수로 수행하면 에포크 단위로 자동으로 진행되지만 여기서는 GAN구조의 특성상 에포크 단위로 처리하는 model.train_on_batch()함수로 구현을 하고 있어 에포크 단위의 순환문을 만든다.
+
+      for index in range(int(X_train.shape[0] / BATCH_SIZE)):
+        x = get_x(X_train,index, BATCH_SIZE)   # x : 배치 크기 만큼의 입력 데이터
+        
+        d_loss, g_loss = gan.train_both(x)   # gan에 전달
+        
+        d_loss_l.append(d_loss)
+        g_loss_l.append(g_loss)
+
+- 에포크가 매 10회가 진행될 때 마다 결과 이미지를 파일로 저장한다. 단 마지막 에포크는 10번 이전에 종료되더라도 결과를 저장한다.
+
+      if epoch % 10 == 0 or epoch  == epochs -1 :
+        z = gan.get_z(x.shape[0])
+        w = gan.generator.predict(z, verbose = 0)
+        save_images(w, output_fold, epochm index)
+        
+   - 무작위 잡음인 z를 생성하고 이 z를 이용해 현재 GAN의 생성망에서 새로운 이미지들을 생성했다.
+   
+   - 생성된 이미지들을  외보에서 볼 수 있도록 파일로 저장했다.
+
+- 배치 단위로 저장된 손실값들을 신경망별로 에포크 단위 리스트에 저장한다.
+
+      d_loss_ll.append(d_loss_l)
+      g_loss_ll.append(g_loss_l)
       
-        
-        
-        
-        
+- 순환문이 끝나면 가중치와 손실값을 저장한다.
+
+      gan.generator.save_weights(output_fold + '/' +'generator', True)
+      gan.discriminator.save_weights(output_fold + '/' + 'discriminator', True)
+      
+      np.savetext(output_fold + '/' + 'd_loss', d_loss_ll)
+      np.savetext(output_fold + '/' + 'g_loss', g_loss_ll)
+      
+    - 먼저 save_weights()함수를 이용해 각 신경망별 모델들의 가중치를 저장하고 모아둔 손실값들도 저장한다.
+
+
+
+
+
+
